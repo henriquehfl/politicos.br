@@ -1,0 +1,101 @@
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  height: var(--header-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.25rem;
+  background: rgba(3, 3, 3, 0.82);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.brand {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.85rem;
+  letter-spacing: 0.12em;
+  font-weight: 600;
+}
+
+.brand span {
+  color: var(--accent);
+}
+
+.nav {
+  display: flex;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+}
+
+.link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 999px;
+  color: var(--muted);
+  transition:
+    color 0.16s ease,
+    background 0.16s ease;
+}
+
+.link:hover {
+  color: var(--foreground);
+  background: var(--surface-hover);
+}
+
+.linkAtivo {
+  color: var(--foreground);
+  background: var(--surface-elevated);
+}
+
+.linkAtivo::after {
+  content: "";
+  position: absolute;
+  left: 0.6rem;
+  right: 0.6rem;
+  bottom: -0.05rem;
+  height: 1px;
+  background: var(--accent);
+  animation: navIn 0.25s ease both;
+}
+
+@keyframes navIn {
+  from {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+  to {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 640px) {
+  .header {
+    padding: 0 0.85rem;
+  }
+
+  .link {
+    padding: 0.4rem;
+  }
+
+  .link span {
+    display: none;
+  }
+
+  .linkAtivo::after {
+    left: 0.4rem;
+    right: 0.4rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .linkAtivo::after {
+    animation: none;
+  }
+}
+

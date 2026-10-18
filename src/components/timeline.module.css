@@ -1,0 +1,607 @@
+.timelineRoot {
+  /* geometria da linha central — os fios laterais dependem destas medidas */
+  --center-col: 72px;
+  --badge-size: 3rem;
+  --side-gap: 1rem;
+  --row-gap: 2.25rem;
+  --node-top: 1.5rem; /* centro vertical do badge em relação ao topo da linha */
+  --connector: calc(var(--side-gap) + (var(--center-col) - var(--badge-size)) / 2);
+
+  position: relative;
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 1.25rem 4rem;
+}
+
+.list {
+  list-style: none;
+  position: relative;
+  z-index: 1;
+}
+
+.row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr var(--center-col) 1fr;
+  align-items: start;
+  gap: 0;
+  padding-bottom: var(--row-gap);
+  min-height: 4rem;
+  animation: rowIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--i, 0) * 38ms);
+}
+
+/* O fio é desenhado por linha (e não como um bloco absoluto) para começar
+   exatamente no primeiro nó e terminar no último. */
+.row::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--spine);
+  z-index: 0;
+}
+
+.list > .row:first-child::before {
+  top: var(--node-top);
+}
+
+.list > .row:last-child::before {
+  bottom: auto;
+  height: var(--node-top);
+}
+
+.centerCol {
+  grid-column: 2;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 3;
+}
+
+.yearBadge {
+  font-family: var(--font-newsreader), Georgia, serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  width: var(--badge-size);
+  height: var(--badge-size);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--badge-bg);
+  color: var(--badge-fg);
+  border: 2px solid var(--spine);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 4;
+  box-shadow: 0 0 0 4px var(--background);
+  animation: badgePop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation-delay: calc(var(--i, 0) * 38ms);
+}
+
+/* marcador discreto para eventos do mesmo ano do anterior */
+.dotNode {
+  margin-top: calc(var(--node-top) - 0.35rem);
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  background: var(--badge-bg);
+  border: 2px solid var(--spine);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 4;
+  box-shadow: 0 0 0 4px var(--background);
+  animation: dotPop 0.35s ease both;
+  animation-delay: calc(var(--i, 0) * 38ms);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.sideLeft,
+.sideRight {
+  padding-top: 0.15rem;
+}
+
+.sideLeft {
+  grid-column: 1;
+  text-align: right;
+  padding-right: 1rem;
+}
+
+.sideRight {
+  grid-column: 3;
+  text-align: left;
+  padding-left: 1rem;
+}
+
+.card {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+.cardInner {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 0.75rem 0.9rem 0.8rem;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.cardInner::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  background: var(--cat, var(--accent));
+  opacity: 0.55;
+  transition: opacity 0.18s ease;
+}
+
+.card:hover .cardInner,
+.card:focus-visible .cardInner {
+  border-color: color-mix(in srgb, var(--cat, var(--accent)) 55%, var(--border));
+  background: var(--surface-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.32);
+}
+
+.card:hover .cardInner::before,
+.card:focus-visible .cardInner::before {
+  opacity: 1;
+}
+
+.sideLeft .card {
+  float: right;
+  clear: both;
+  max-width: min(100%, 22rem);
+}
+
+.sideRight .card {
+  float: left;
+  clear: both;
+  max-width: min(100%, 22rem);
+}
+
+/* Fio horizontal que "prende" cada card ao nó da linha central. */
+.sideLeft .card::after,
+.sideRight .card::after {
+  content: "";
+  position: absolute;
+  top: calc(var(--node-top) - 0.15rem);
+  width: var(--connector);
+  height: 1px;
+}
+
+.sideLeft .card::after {
+  right: calc(-1 * var(--connector));
+  background: linear-gradient(90deg, var(--border), var(--spine));
+}
+
+.sideRight .card::after {
+  left: calc(-1 * var(--connector));
+  background: linear-gradient(90deg, var(--spine), var(--border));
+}
+
+.sideLeft .card:hover::after,
+.sideRight .card:hover::after {
+  background: var(--accent-muted);
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.cardIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 50%;
+  color: var(--cat, var(--accent));
+  background: color-mix(in srgb, var(--cat, var(--accent)) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cat, var(--accent)) 30%, var(--border));
+  flex-shrink: 0;
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease;
+}
+
+.card:hover .cardIcon {
+  transform: scale(1.08) rotate(-4deg);
+  background: color-mix(in srgb, var(--cat, var(--accent)) 20%, transparent);
+}
+
+.cardCat {
+  color: color-mix(in srgb, var(--cat, var(--accent)) 70%, var(--muted));
+}
+
+.cardDate {
+  margin-left: auto;
+  font-size: 0.58rem;
+  color: var(--muted);
+}
+
+.cardTitle {
+  display: block;
+  font-family: var(--font-newsreader), Georgia, serif;
+  font-size: 1.05rem;
+  line-height: 1.25;
+  margin-bottom: 0.35rem;
+}
+
+.cardSummary {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.875rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.metaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.chip {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.45rem;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+}
+
+.chipSim {
+  color: #6ee7a0;
+  border-color: #2d5a3d;
+  background: #0d1f14;
+}
+
+.chipNao {
+  color: #fca5a5;
+  border-color: #5a2d2d;
+  background: #1f0d0d;
+}
+
+.chipAbst {
+  color: #fcd34d;
+  border-color: #5a4a2d;
+  background: #1f1a0d;
+}
+
+.chipCritico {
+  color: #fca5a5;
+  border-color: #5a2d2d;
+  background: #1f0d0d;
+}
+
+.chipAlerta {
+  color: #fcd34d;
+  border-color: #5a4a2d;
+  background: #1f1a0d;
+}
+
+.chipPositivo {
+  color: #6ee7a0;
+  border-color: #2d5a3d;
+  background: #0d1f14;
+}
+
+.vazio {
+  padding: 2.5rem 1rem;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.88rem;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-bottom: 2rem;
+}
+
+.filterBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease,
+    transform 0.15s ease;
+}
+
+.filterBtn svg {
+  color: var(--cat, var(--muted));
+  opacity: 0.85;
+}
+
+.filterBtn:hover {
+  color: var(--foreground);
+  border-color: #3a3734;
+  transform: translateY(-1px);
+}
+
+.filterBtnActive {
+  color: var(--foreground);
+  border-color: color-mix(in srgb, var(--cat, var(--accent)) 55%, var(--border));
+  background: var(--surface-elevated);
+}
+
+.filterCount {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.6rem;
+  padding: 0.02rem 0.3rem;
+  border-radius: 999px;
+  background: var(--surface-hover);
+  color: var(--muted);
+}
+
+.filterBtnActive .filterCount {
+  background: color-mix(in srgb, var(--cat, var(--accent)) 18%, transparent);
+  color: var(--foreground);
+}
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  animation: backdropIn 0.18s ease both;
+}
+
+.modal {
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
+  border-top: 2px solid var(--cat, var(--accent-muted));
+  border-radius: 8px;
+  max-width: 32rem;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 1.5rem;
+  position: relative;
+  animation: modalIn 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.modalKicker {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cat, var(--accent));
+  margin-bottom: 0.5rem;
+}
+
+.modalClose {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.modalTitle {
+  font-family: var(--font-newsreader), Georgia, serif;
+  font-size: 1.35rem;
+  padding-right: 2rem;
+  margin-bottom: 0.75rem;
+}
+
+.modalBody {
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.modalLinks {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.modalLinks a {
+  color: var(--accent);
+  font-size: 0.85rem;
+}
+
+.modalTags {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 0.5rem;
+  letter-spacing: 0.02em;
+}
+
+@media (max-width: 900px) {
+  .timelineRoot {
+    --center-col: 52px;
+    --badge-size: 2.5rem;
+    --side-gap: 0.85rem;
+    --node-top: 1.25rem;
+
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  /* Em telas estreitas a linha vai para a esquerda e todos os cards ficam
+     à direita dela, para o texto não quebrar palavra por palavra. */
+  .row {
+    grid-template-columns: var(--center-col) 1fr;
+  }
+
+  .row::before {
+    left: calc(var(--center-col) / 2);
+  }
+
+  .centerCol {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .sideLeft,
+  .sideRight {
+    grid-column: 2;
+    grid-row: 1;
+    text-align: left;
+    padding: 0.15rem 0 0 var(--side-gap);
+  }
+
+  .sideLeft:empty,
+  .sideRight:empty {
+    display: none;
+  }
+
+  .yearBadge {
+    font-size: 0.65rem;
+  }
+
+  .sideLeft .card,
+  .sideRight .card {
+    float: left;
+    max-width: 100%;
+  }
+
+  .sideLeft .card::after,
+  .sideRight .card::after {
+    right: auto;
+    left: calc(-1 * var(--connector));
+    background: linear-gradient(90deg, var(--spine), var(--border));
+  }
+}
+
+@keyframes rowIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes badgePop {
+  from {
+    opacity: 0;
+    transform: scale(0.62);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes dotPop {
+  from {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes backdropIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row,
+  .yearBadge,
+  .dotNode,
+  .modal,
+  .modalBackdrop {
+    animation: none;
+  }
+
+  .card:hover .cardInner,
+  .filterBtn:hover {
+    transform: none;
+  }
+}
+
