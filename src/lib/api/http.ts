@@ -32,7 +32,20 @@ async function requestJson<T>(url: string, opts: FetchOpts): Promise<T | null> {
         // Participa do cache de dados do Next quando aplicável.
         next: { revalidate: 600 },
       });
-      if (!res.ok) return null;
+      if (!res.ok) {
+        // 429/5xx são transitórios: uma segunda tentativa evita cachear uma
+        // página incompleta (ex.: perfil sem discursos por rate limit).
+        if ((res.status === 429 || res.status >= 500) && tentativa === 0) {
+          const retryAfter = Number(res.headers.get("retry-after") ?? "");
+          const espera =
+            res.headers.has("retry-after") && Number.isFinite(retryAfter)
+              ? Math.min(retryAfter * 1000, 2000)
+              : 500;
+          await new Promise((resolve) => setTimeout(resolve, espera));
+          continue;
+        }
+        return null;
+      }
       const data = (await res.json()) as T;
       memory.set(url, { at: Date.now(), data });
       return data;

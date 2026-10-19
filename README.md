@@ -23,6 +23,8 @@ Plataforma para explorar a política brasileira com **dados abertos oficiais**: 
 
 > O projeto consome apenas APIs públicas e não faz scraping. TikTok, Instagram e X não oferecem API pública por parlamentar, então esses botões abrem buscas públicas.
 
+> Fatos que não estão nas APIs do Congresso (prisões, condenações, cassações, declarações e publicações em redes sociais) ficam em `src/data/fatos-politicos.ts`, com data e fonte por item. Como o X/Twitter não tem API pública por parlamentar, essas publicações são curadas manualmente e não coletadas em tempo real.
+
 ## Como rodar
 
 ```bash

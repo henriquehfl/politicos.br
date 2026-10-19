@@ -1,14 +1,6 @@
 import { PRESIDENTES, type MandatoPresidencial, type Presidente } from "@/data/presidentes";
 import type { CargoPublico, TimelineEvent } from "@/lib/types";
-
-function normalizarNome(valor: string): string {
-  return valor
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9]+/g, " ")
-    .trim()
-    .toLowerCase();
-}
+import { normalizarNome } from "@/lib/texto";
 
 function ano(iso: string): string {
   return iso.slice(0, 4);

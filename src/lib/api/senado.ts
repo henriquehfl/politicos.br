@@ -1,10 +1,21 @@
 import { cacheLife } from "next/cache";
 import { SENADO, fetchJson } from "./http";
 import { buildCargoEvents, getCargosPublicos } from "@/lib/cargos";
+import {
+  contarPolemicas,
+  getEventosHistoricos,
+  mesclarEventos,
+  sanearEventos,
+} from "@/lib/historico";
 import { buildMediaLinks } from "@/lib/media";
+import { primeiroTexto, textoLimpo } from "@/lib/texto";
 import type { Comissao, Politico, TimelineEvent, VotePosition } from "@/lib/types";
 
 /* ------------------------------- DTOs ---------------------------------- */
+
+/** Falas por ano e teto total: preserva o início da carreira em mandatos longos. */
+const DISCURSOS_POR_ANO = 4;
+const TETO_DISCURSOS = 160;
 
 interface SenadorBasico {
   CodigoParlamentar: string;
@@ -55,10 +66,10 @@ export interface Filiacao {
 
 interface Pronunciamento {
   DataPronunciamento?: string;
-  TipoUsoPalavra?: { Descricao?: string };
-  TextoResumo?: string;
-  Indexacao?: string;
-  UrlTexto?: string;
+  TipoUsoPalavra?: { Descricao?: string | null } | null;
+  TextoResumo?: string | null;
+  Indexacao?: string | null;
+  UrlTexto?: string | null;
   SiglaPartidoParlamentarNaData?: string;
 }
 
@@ -180,8 +191,9 @@ function calcularIdade(nascimento?: string, falecimento?: string | null) {
   return idade >= 0 ? idade : undefined;
 }
 
-function isPolemico(texto: string): boolean {
-  const t = texto.toLowerCase();
+function isPolemico(texto?: string | null): boolean {
+  const t = textoLimpo(texto)?.toLowerCase() ?? "";
+  if (!t) return false;
   return [
     "corrup",
     "escândal",
@@ -263,7 +275,9 @@ export async function getSenadorFiliacoes(id: string): Promise<Filiacao[]> {
 export async function getSenadorDiscursos(id: string, anoInicio = 2019) {
   const ini = `${anoInicio}0101`;
   const fim = `${new Date().getFullYear()}1231`;
-  const data = await fetchJson<{
+  const url = `${SENADO}/senador/${id}/discursos.json?dataInicio=${ini}&dataFim=${fim}`;
+
+  type Resposta = {
     DiscursosParlamentar?: {
       Parlamentar?: {
         Pronunciamentos?: {
@@ -271,10 +285,18 @@ export async function getSenadorDiscursos(id: string, anoInicio = 2019) {
         };
       };
     };
-  }>(
-    `${SENADO}/senador/${id}/discursos.json?dataInicio=${ini}&dataFim=${fim}`,
-    { timeoutMs: 20000 },
-  );
+  };
+
+  const primeira = await fetchJson<Resposta>(url, { timeoutMs: 20000 });
+  // Mesma regra da Câmara: uma falha transitória não pode virar perfil sem
+  // discursos no cache de horas.
+  const data =
+    primeira ??
+    (await (async () => {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      return fetchJson<Resposta>(url, { timeoutMs: 20000 });
+    })());
+
   return asArray(
     data?.DiscursosParlamentar?.Parlamentar?.Pronunciamentos?.Pronunciamento,
   );
@@ -617,33 +639,43 @@ export function buildSenadorEvents(input: {
     if (!year) continue;
     const posicao = v.VotoParlamentar ? toVotePosition(v.VotoParlamentar) : null;
     if (!posicao) continue;
+    const descricaoVotacao = textoLimpo(v.DescricaoVotacao);
+    const ementa = textoLimpo(v.Materia?.Ementa);
     const materia =
-      v.Materia?.DescricaoIdentificacao ??
-      v.DescricaoIdentificacaoMateria ??
-      v.DescricaoVotacao ??
-      "Votação nominal";
+      primeiroTexto(
+        v.Materia?.DescricaoIdentificacao,
+        v.DescricaoIdentificacaoMateria,
+        descricaoVotacao,
+      ) ?? "Votação nominal";
+    const resumo =
+      descricaoVotacao ??
+      ementa ??
+      "Posicionamento em votação nominal no Senado.";
+    const detalhe = [
+      descricaoVotacao,
+      ementa,
+      textoLimpo(v.DescricaoVoto)
+        ? `Voto do parlamentar: ${textoLimpo(v.DescricaoVoto)}.`
+        : "",
+      textoLimpo(v.DescricaoResultado)
+        ? `Resultado: ${textoLimpo(v.DescricaoResultado)}.`
+        : "",
+      textoLimpo(v.TextoTramitacao, 300),
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+
     events.push({
-      id: `vot-${v.DataSessao}-${v.DescricaoVotacao ?? events.length}`,
+      id: `vot-${v.DataSessao}-${descricaoVotacao ?? events.length}`,
       year,
-      date: v.DataSessao,
+      date: textoLimpo(v.DataSessao),
       title: `Votação — ${materia}`,
-      summary:
-        v.DescricaoVotacao ??
-        v.Materia?.Ementa ??
-        "Posicionamento em votação nominal no Senado.",
+      summary: resumo,
       category: "votacao",
       vote: posicao,
       voteProposicao: materia,
-      detail: [
-        v.DescricaoVotacao,
-        v.Materia?.Ementa,
-        v.DescricaoVoto ? `Voto do parlamentar: ${v.DescricaoVoto}.` : "",
-        v.DescricaoResultado ? `Resultado: ${v.DescricaoResultado}.` : "",
-        v.TextoTramitacao ? v.TextoTramitacao.slice(0, 300) : "",
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .trim(),
+      detail: detalhe || resumo,
       sources: [
         {
           label: "Votação (Senado)",
@@ -653,38 +685,70 @@ export function buildSenadorEvents(input: {
     });
   }
 
-  // Discursos
-  const discursosRecentes = [...input.discursos]
-    .sort((a, b) =>
-      (b.DataPronunciamento ?? "").localeCompare(a.DataPronunciamento ?? ""),
-    )
-    .slice(0, 120);
+  // Discursos — carreiras curtas mantêm tudo; acima do teto há amostra por ano
+  // para preservar o início do mandato sem inflar o payload.
+  const ordenados = [...input.discursos].sort((a, b) =>
+    (b.DataPronunciamento ?? "").localeCompare(a.DataPronunciamento ?? ""),
+  );
+
+  let discursosRecentes = ordenados;
+  if (ordenados.length > TETO_DISCURSOS) {
+    const porAno = new Map<number, Pronunciamento[]>();
+    for (const p of ordenados) {
+      const ano = yearFromDate(p.DataPronunciamento);
+      if (!ano) continue;
+      const lista = porAno.get(ano) ?? [];
+      if (lista.length < DISCURSOS_POR_ANO) {
+        lista.push(p);
+        porAno.set(ano, lista);
+      }
+    }
+    discursosRecentes = [...porAno.values()]
+      .flat()
+      .sort((a, b) =>
+        (b.DataPronunciamento ?? "").localeCompare(a.DataPronunciamento ?? ""),
+      )
+      .slice(0, TETO_DISCURSOS);
+  }
 
   for (const p of discursosRecentes) {
     const year = yearFromDate(p.DataPronunciamento);
     if (!year) continue;
-    const texto = p.TextoResumo ?? "";
+    const texto = textoLimpo(p.TextoResumo);
+    const tipo =
+      textoLimpo(p.TipoUsoPalavra?.Descricao) ?? "Discurso em plenário";
+    const resumo =
+      texto ??
+      "Pronunciamento registrado; resumo não disponível na fonte oficial.";
+    const urlTexto = textoLimpo(p.UrlTexto);
     const polemico = isPolemico(texto);
+    const tema = textoLimpo(p.Indexacao)
+      ?.split(",")
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .slice(0, 5)
+      .join(", ");
+
     events.push({
       id: `dis-${p.DataPronunciamento}-${events.length}`,
       year,
-      date: p.DataPronunciamento,
+      date: textoLimpo(p.DataPronunciamento),
       title: polemico
         ? "Discurso de impacto / fala polêmica"
-        : `Pronunciamento — ${p.TipoUsoPalavra?.Descricao ?? "Discurso"}`,
-      summary: texto.slice(0, 220),
+        : `Pronunciamento — ${tipo}`,
+      summary: resumo,
       category: "discurso",
       impact: polemico ? "alerta" : undefined,
       discurso: {
-        tipo: p.TipoUsoPalavra?.Descricao,
-        tema: p.Indexacao?.split(",")?.slice(0, 5).join(", "),
-        resumo: texto,
-        urlTexto: p.UrlTexto,
+        tipo,
+        tema,
+        resumo,
+        urlTexto,
         polemico,
       },
-      detail: texto,
-      sources: p.UrlTexto
-        ? [{ label: "Íntegra (Senado)", href: p.UrlTexto }]
+      detail: texto ?? resumo,
+      sources: urlTexto
+        ? [{ label: "Íntegra (Senado)", href: urlTexto }]
         : undefined,
     });
   }
@@ -694,17 +758,20 @@ export function buildSenadorEvents(input: {
     const inicio = f.DataFiliacao;
     const year = yearFromDate(inicio);
     if (!year) continue;
-    const fim = f.DataDesfiliacao;
+    const fim = textoLimpo(f.DataDesfiliacao);
+    const partido =
+      primeiroTexto(f.NomePartido, f.SiglaPartido, "partido") ?? "partido";
+    const sigla = primeiroTexto(f.SiglaPartido, f.NomePartido, "partido");
     events.push({
-      id: `fil-${inicio}-${f.SiglaPartido ?? events.length}`,
+      id: `fil-${inicio}-${sigla ?? events.length}`,
       year,
-      date: inicio,
-      title: `Filiação — ${f.SiglaPartido ?? f.NomePartido ?? "partido"}`,
-      summary: `Filiação partidária a ${f.NomePartido ?? f.SiglaPartido}${
+      date: textoLimpo(inicio),
+      title: `Filiação — ${sigla}`,
+      summary: `Filiação partidária a ${partido}${
         fim ? ` (até ${fim})` : " (atual)"
       }.`,
       category: "partido",
-      detail: `${f.NomePartido ?? f.SiglaPartido}: filiação em ${inicio}${
+      detail: `${partido}: filiação em ${inicio}${
         fim ? ` e desfiliação em ${fim}` : " (sem data de saída)"
       }.`,
     });
@@ -784,7 +851,7 @@ export async function buildSenador(id: string): Promise<Politico | null> {
       .filter(Boolean)
       .join(" / ") || undefined;
 
-  const events = buildSenadorEvents({
+  const eventosBase = buildSenadorEvents({
     senadorId: id,
     filiacoes,
     discursos,
@@ -800,6 +867,18 @@ export async function buildSenador(id: string): Promise<Politico | null> {
       nomeCivil: basico.NomeCompletoParlamentar,
     },
   });
+
+  const events = sanearEventos(
+    mesclarEventos(
+      eventosBase,
+      buildCargoEvents(cargosPublicos, id),
+      getEventosHistoricos(
+        nome,
+        basico.DadosBasicosParlamentar?.DataNascimento,
+        id,
+      ),
+    ),
+  );
 
   const midia = buildMediaLinks({
     nome,
@@ -819,11 +898,7 @@ export async function buildSenador(id: string): Promise<Politico | null> {
     ),
   ];
 
-  const polemicas = events.filter(
-    (e) => e.impact === "critico" || e.discurso?.polemico,
-  ).length;
-  const eventosComCargos = [...events, ...buildCargoEvents(cargosPublicos, id)];
-
+  const polemicas = contarPolemicas(events);
   const totalVotacoes = votacoes.length;
 
   const telefones = asArray(basico.Telefones?.Telefone ?? [])
@@ -873,7 +948,7 @@ export async function buildSenador(id: string): Promise<Politico | null> {
     },
     cargos: cargosPublicos,
     situacaoAtual: cargoAtual,
-    events: eventosComCargos,
+    events,
     bio: {
       nomeCivil: basico.NomeCompletoParlamentar,
       nascimento: basico.DadosBasicosParlamentar?.DataNascimento,

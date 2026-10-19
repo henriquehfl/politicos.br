@@ -22,6 +22,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
+import { textoLimpo } from "@/lib/texto";
 import type { TimelineCategory, TimelineEvent, VotePosition } from "@/lib/types";
 import styles from "./timeline.module.css";
 
@@ -227,6 +228,10 @@ function EventCard({
 }) {
   const meta = CATEGORY_META[event.category];
   const Icon = meta.icon;
+  const titulo = textoLimpo(event.title) ?? "Evento sem título";
+  const resumo =
+    textoLimpo(event.summary) ??
+    "Sem descrição disponível na fonte oficial.";
 
   return (
     <button
@@ -234,7 +239,7 @@ function EventCard({
       className={styles.card}
       onClick={() => onSelect(event)}
       style={{ ["--cat" as string]: meta.color } as CSSProperties}
-      aria-label={`${event.year}: ${event.title}`}
+      aria-label={`${event.year}: ${titulo}`}
     >
       <span className={styles.cardInner}>
         <span className={styles.cardHead}>
@@ -246,8 +251,8 @@ function EventCard({
             <span className={styles.cardDate}>{dataCurta(event.date)}</span>
           )}
         </span>
-        <span className={styles.cardTitle}>{event.title}</span>
-        <span className={styles.cardSummary}>{event.summary}</span>
+        <span className={styles.cardTitle}>{titulo}</span>
+        <span className={styles.cardSummary}>{resumo}</span>
         <span className={styles.metaRow}>
           {event.vote && (
             <span className={`${styles.chip} ${voteChipClass(event.vote)}`}>
@@ -297,6 +302,11 @@ function EventModal({
 }) {
   const meta = CATEGORY_META[event.category];
   const Icon = meta.icon;
+  const titulo = textoLimpo(event.title) ?? "Evento sem título";
+  const corpo =
+    textoLimpo(event.detail) ??
+    textoLimpo(event.summary) ??
+    "Sem descrição disponível na fonte oficial.";
 
   return (
     <div
@@ -328,9 +338,9 @@ function EventModal({
         </p>
 
         <h2 id="timeline-modal-title" className={styles.modalTitle}>
-          {event.title}
+          {titulo}
         </h2>
-        <p className={styles.modalBody}>{event.detail ?? event.summary}</p>
+        <p className={styles.modalBody}>{corpo}</p>
 
         {event.vote && (
           <p className={styles.modalBody}>
@@ -363,15 +373,19 @@ function EventModal({
 
         {event.discurso && (
           <div className={styles.modalBody}>
-            {event.discurso.tipo && (
+            {textoLimpo(event.discurso.tipo) && (
               <p>
-                <strong>{event.discurso.tipo}</strong>
+                <strong>{textoLimpo(event.discurso.tipo)}</strong>
               </p>
             )}
-            <p>{event.discurso.resumo}</p>
-            {event.discurso.tema && (
+            <p>
+              {textoLimpo(event.discurso.resumo) ??
+                textoLimpo(event.summary) ??
+                corpo}
+            </p>
+            {textoLimpo(event.discurso.tema) && (
               <p className={styles.modalTags}>
-                Temas: {event.discurso.tema}
+                Temas: {textoLimpo(event.discurso.tema)}
               </p>
             )}
           </div>

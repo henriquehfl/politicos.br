@@ -1,7 +1,14 @@
 import { cacheLife } from "next/cache";
 import { CAMARA, fetchJson } from "./http";
 import { buildCargoEvents, getCargosPublicos } from "@/lib/cargos";
+import {
+  contarPolemicas,
+  getEventosHistoricos,
+  mesclarEventos,
+  sanearEventos,
+} from "@/lib/historico";
 import { buildMediaLinks } from "@/lib/media";
+import { textoLimpo } from "@/lib/texto";
 import type {
   Comissao,
   Politico,
@@ -81,9 +88,10 @@ interface CamaraDespesa {
 
 interface CamaraDiscurso {
   dataHoraInicio: string;
-  tipoDiscurso: string;
-  keywords?: string;
-  sumario: string;
+  /** A API devolve `null` em muitos discursos antigos (ex.: Constituinte). */
+  tipoDiscurso?: string | null;
+  keywords?: string | null;
+  sumario?: string | null;
   transcricao?: string | null;
   urlTexto?: string | null;
 }
@@ -113,10 +121,15 @@ const BUSCA_VOTACOES_MESES = 12;
 const LOTE_VOTOS = 8;
 /** Teto de consultas de votos para manter a página responsiva (~10 req/s). */
 const TETO_CONSULTAS_VOTOS = 50;
-/** Quantas legislaturas de discursos buscar (atual + 2 anteriores). */
-const LEGISLATURAS_DISCURSOS = 3;
-/** Teto de falas na linha do tempo (as mais recentes). */
-const TETO_DISCURSOS = 90;
+/**
+ * Primeira legislatura com dados abertos de discursos (Constituinte).
+ * A busca percorre todas as legislaturas do mandato, não só as três últimas.
+ */
+const PRIMEIRA_LEGISLATURA_DISCURSOS = 48;
+/** Falas por ano: preserva o início da carreira sem inflar o payload. */
+const DISCURSOS_POR_ANO = 4;
+/** Teto de falas na linha do tempo. */
+const TETO_DISCURSOS = 160;
 /** Teto de páginas de proposições (100 cada) para não estourar o payload. */
 const TETO_PAGINAS_PROPOSICOES = 4;
 
@@ -173,8 +186,9 @@ function calcularIdade(nascimento?: string, falecimento?: string | null) {
   return idade >= 0 ? idade : undefined;
 }
 
-function isPolemico(texto: string): boolean {
-  const t = texto.toLowerCase();
+function isPolemico(texto?: string | null): boolean {
+  const t = textoLimpo(texto)?.toLowerCase() ?? "";
+  if (!t) return false;
   const termos = [
     "corrup",
     "escândal",
@@ -245,33 +259,83 @@ export async function getDeputadoDespesas(
   return resultados.flatMap((r) => r?.dados ?? []);
 }
 
+async function getDiscursosDaLegislatura(
+  id: string,
+  legislatura: number,
+): Promise<{ dados?: CamaraDiscurso[] } | null> {
+  const url = `${CAMARA}/deputados/${id}/discursos?idLegislatura=${legislatura}&itens=100&ordem=DESC&ordenarPor=dataHoraInicio`;
+
+  const primeira = await fetchJson<{ dados: CamaraDiscurso[] }>(url, {
+    timeoutMs: 20000,
+  });
+  if (primeira) return primeira;
+
+  // Segunda chance antes de devolver vazio: o cache de perfil dura horas e
+  // uma falha transitória não pode virar "político sem discursos".
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  return fetchJson<{ dados: CamaraDiscurso[] }>(url, { timeoutMs: 20000 });
+}
+
 export async function getDeputadoDiscursos(
   id: string,
   legislatura: number,
 ): Promise<CamaraDiscurso[]> {
-  // Falas da legislatura atual e das duas anteriores (histórico real).
+  // Percorre todas as legislaturas do mandato (48ª em diante), não apenas as
+  // três mais recentes. Sem isso, quem teve mandatos antigos perdia as falas
+  // da juventude política — exatamente o começo da trajetória.
   const legislaturas = Array.from(
-    { length: LEGISLATURAS_DISCURSOS },
+    { length: Math.max(0, legislatura - PRIMEIRA_LEGISLATURA_DISCURSOS + 1) },
     (_, i) => legislatura - i,
-  ).filter((l) => l > 0);
+  ).filter((leg) => leg >= PRIMEIRA_LEGISLATURA_DISCURSOS);
 
-  const respostas = await Promise.all(
-    legislaturas.map((leg) =>
-      fetchJson<{ dados: CamaraDiscurso[] }>(
-        `${CAMARA}/deputados/${id}/discursos?idLegislatura=${leg}&itens=100&ordem=DESC&ordenarPor=dataHoraInicio`,
-      ),
-    ),
-  );
+  // Lotes de cinco para não disparar 10 requisições simultâneas à API.
+  const respostas: Array<{ dados?: CamaraDiscurso[] } | null> = [];
+  for (let i = 0; i < legislaturas.length; i += 5) {
+    const lote = legislaturas.slice(i, i + 5);
+    respostas.push(
+      ...(await Promise.all(
+        lote.map((leg) => getDiscursosDaLegislatura(id, leg)),
+      )),
+    );
+  }
 
   const vistos = new Set<string>();
-  return respostas
+  const todos = respostas
     .flatMap((r) => r?.dados ?? [])
     .filter((d) => {
-      const chave = `${d.dataHoraInicio}-${d.tipoDiscurso}-${d.sumario}`;
+      if (!d?.dataHoraInicio) return false;
+      const chave = [
+        d.dataHoraInicio,
+        textoLimpo(d.tipoDiscurso),
+        textoLimpo(d.sumario),
+      ].join("|");
       if (vistos.has(chave)) return false;
       vistos.add(chave);
       return true;
     })
+    .sort((a, b) =>
+      (b.dataHoraInicio ?? "").localeCompare(a.dataHoraInicio ?? ""),
+    );
+
+  // Carreiras curtas mantêm todas as falas; só há amostragem quando o volume
+  // passa do teto. Assim o Lula deputado (1987–1991) não perde pronunciamentos.
+  if (todos.length <= TETO_DISCURSOS) return todos;
+
+  // Amostra por ano: mantém falas de 1987 e de 2026 no mesmo perfil. O corte
+  // apenas pelas mais recentes apagava o início da carreira em mandatos longos.
+  const porAno = new Map<number, CamaraDiscurso[]>();
+  for (const discurso of todos) {
+    const ano = yearFromDate(discurso.dataHoraInicio);
+    if (!ano) continue;
+    const lista = porAno.get(ano) ?? [];
+    if (lista.length < DISCURSOS_POR_ANO) {
+      lista.push(discurso);
+      porAno.set(ano, lista);
+    }
+  }
+
+  return [...porAno.values()]
+    .flat()
     .sort((a, b) =>
       (b.dataHoraInicio ?? "").localeCompare(a.dataHoraInicio ?? ""),
     )
@@ -528,19 +592,20 @@ export function buildDeputadoEvents(input: {
   for (const v of input.votacoes) {
     const year = yearFromDate(v.votacao.data);
     if (!year) continue;
+    const descricao =
+      textoLimpo(v.votacao.descricao) ?? "Votação nominal em plenário.";
+    const objeto = textoLimpo(v.votacao.proposicaoObjeto);
     events.push({
       id: `vot-${v.votacao.id}`,
       year,
-      date: v.votacao.data,
-      title: v.votacao.proposicaoObjeto
-        ? `Votação — ${v.votacao.proposicaoObjeto}`
-        : "Votação nominal em plenário",
-      summary: v.votacao.descricao,
+      date: textoLimpo(v.votacao.data),
+      title: objeto ? `Votação — ${objeto}` : "Votação nominal em plenário",
+      summary: descricao,
       category: "votacao",
       vote: v.voto,
-      voteProposicao: v.votacao.proposicaoObjeto ?? undefined,
+      voteProposicao: objeto,
       detail:
-        `Posicionamento registrado: ${v.voto}. ` + v.votacao.descricao +
+        `Posicionamento registrado: ${v.voto}. ${descricao}` +
         (v.votacao.aprovacao === 1
           ? " Resultado: aprovado."
           : v.votacao.aprovacao === 0
@@ -558,28 +623,45 @@ export function buildDeputadoEvents(input: {
   for (const d of input.discursos) {
     const year = yearFromDate(d.dataHoraInicio);
     if (!year) continue;
-    const texto = d.transcricao ?? d.sumario ?? "";
-    const polemico = isPolemico(texto);
+
+    const tipo =
+      textoLimpo(d.tipoDiscurso) ?? "Discurso em plenário";
+    const sumario = textoLimpo(d.sumario);
+    const transcricao = textoLimpo(d.transcricao);
+    const resumo =
+      sumario ??
+      transcricao?.slice(0, 220) ??
+      "Pronunciamento registrado; resumo não disponível na fonte oficial.";
+    const textoAnalise = transcricao ?? sumario ?? "";
+    const polemico = isPolemico(textoAnalise);
+    const urlTexto = textoLimpo(d.urlTexto);
+    const tema = textoLimpo(d.keywords)
+      ?.split(",")
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .slice(0, 5)
+      .join(", ");
+
     events.push({
       id: `dis-${d.dataHoraInicio}-${year}-${events.length}`,
       year,
-      date: d.dataHoraInicio.slice(0, 10),
+      date: textoLimpo(d.dataHoraInicio)?.slice(0, 10),
       title: polemico
         ? "Discurso de impacto / fala polêmica"
-        : `Pronunciamento — ${d.tipoDiscurso}`,
-      summary: d.sumario?.slice(0, 220) ?? "Pronunciamento em plenário.",
+        : `Pronunciamento — ${tipo}`,
+      summary: resumo,
       category: "discurso",
       impact: polemico ? "alerta" : undefined,
       discurso: {
-        tipo: d.tipoDiscurso,
-        tema: d.keywords?.split(",")?.slice(0, 5).join(", "),
-        resumo: d.sumario,
-        urlTexto: d.urlTexto ?? undefined,
+        tipo,
+        tema,
+        resumo,
+        urlTexto,
         polemico,
       },
-      detail: d.transcricao ? d.transcricao.slice(0, 600) : d.sumario,
-      sources: d.urlTexto
-        ? [{ label: "Íntegra do discurso (Diário)", href: d.urlTexto }]
+      detail: transcricao?.slice(0, 600) ?? resumo,
+      sources: urlTexto
+        ? [{ label: "Íntegra do discurso (Diário)", href: urlTexto }]
         : undefined,
     });
   }
@@ -678,7 +760,7 @@ export async function buildDeputado(id: string): Promise<Politico | null> {
     (s?.descricaoStatus ?? "").toLowerCase().includes("exerc") ||
     (s?.situacao ?? "").toLowerCase().includes("exerc");
 
-  const events = buildDeputadoEvents({
+  const eventosBase = buildDeputadoEvents({
     deputadoId: id,
     despesas,
     discursos,
@@ -692,6 +774,16 @@ export async function buildDeputado(id: string): Promise<Politico | null> {
       escolaridade: detalhe.dados.escolaridade,
     },
   });
+
+  // A linha do tempo parlamentar é a base; cargos e fatos históricos entram
+  // depois, sem duplicar posse/data e com saneamento final de nulos.
+  const events = sanearEventos(
+    mesclarEventos(
+      eventosBase,
+      buildCargoEvents(cargos, id),
+      getEventosHistoricos(nome, detalhe.dados.dataNascimento, id),
+    ),
+  );
 
   const profissoes = ocupacoes.map((o) => {
     const periodo =
@@ -712,13 +804,7 @@ export async function buildDeputado(id: string): Promise<Politico | null> {
     site: detalhe.dados.urlWebsite,
   });
 
-  const polemicas = events.filter(
-    (e) => e.impact === "critico" || e.discurso?.polemico,
-  ).length;
-
-  // A linha do tempo parlamentar continua sendo a base; a trajetória
-  // presidencial (quando houver) é anexada como eventos oficiais.
-  const eventosComCargos = [...events, ...buildCargoEvents(cargos, id)];
+  const polemicas = contarPolemicas(events);
 
   // Presença estimada apenas para quem está em exercício: sessões nominais
   // varridas vs. sessões com voto do deputado. Mandatos encerrados não têm
@@ -773,7 +859,7 @@ export async function buildDeputado(id: string): Promise<Politico | null> {
     },
     cargos,
     situacaoAtual: cargoAtual,
-    events: eventosComCargos,
+    events,
     bio: {
       nomeCivil: detalhe.dados.nomeCivil,
       nascimento: detalhe.dados.dataNascimento,
