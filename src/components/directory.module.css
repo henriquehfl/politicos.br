@@ -225,6 +225,12 @@
   background: #1a140c;
 }
 
+.seloPresidente {
+  color: #f2d4a8;
+  border-color: rgba(224, 176, 122, 0.6);
+  background: rgba(224, 176, 122, 0.14);
+}
+
 .meta {
   display: flex;
   align-items: center;

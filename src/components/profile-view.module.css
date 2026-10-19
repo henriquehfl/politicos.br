@@ -75,6 +75,31 @@
   line-height: 1.12;
 }
 
+.situacaoAtual {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.6rem;
+  padding: 0.3rem 0.62rem;
+  border: 1px solid rgba(224, 176, 122, 0.55);
+  border-radius: 999px;
+  background: rgba(224, 176, 122, 0.1);
+  color: #e0b07a;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.situacaoAtual:hover {
+  background: rgba(224, 176, 122, 0.18);
+  border-color: #e0b07a;
+}
+
 .subtitle {
   font-size: 0.78rem;
   color: var(--muted);

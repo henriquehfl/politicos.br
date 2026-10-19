@@ -53,6 +53,20 @@ function numero(valor?: number): string {
   return (valor ?? 0).toLocaleString("pt-BR");
 }
 
+/** "48" ou "57ª" -> "48ª legislatura" */
+function legislaturaLabel(valor: string): string {
+  if (!/^\d+/.test(valor)) return "Legislatura não informada";
+  return `${valor.replace(/[ªa]$/i, "")}ª legislatura`;
+}
+
+/** Ano inicial e final da legislatura (48ª = 1987–1991; 57ª = 2023–2027). */
+function periodoLegislatura(valor: string): string | null {
+  const numeroLeg = Number(valor.replace(/\D/g, ""));
+  if (!Number.isInteger(numeroLeg) || numeroLeg < 48 || numeroLeg > 57) return null;
+  const inicio = 2023 - (57 - numeroLeg) * 4;
+  return `${inicio}–${inicio + 4}`;
+}
+
 export function PoliticoSidePanel({
   politico,
   modo,
@@ -74,6 +88,10 @@ export function PoliticoSidePanel({
         : styles.toggleFechado;
 
   const { bio, atividade, midia, profissoes, frentes } = politico;
+  const cargos = politico.cargos ?? [];
+  const situacaoAtual =
+    politico.situacaoAtual ?? cargos.find((cargo) => cargo.atual) ?? null;
+  const periodo = periodoLegislatura(politico.legislatura);
   const oficiais = (midia ?? []).filter((m) => m.oficial);
   const buscas = (midia ?? []).filter((m) => !m.oficial);
   const nascimento = formatarData(bio?.nascimento);
@@ -119,16 +137,26 @@ export function PoliticoSidePanel({
           )}
           <h2 className={styles.nome}>{politico.nome}</h2>
           <p className={styles.cargo}>
-            {politico.cargo === "deputado" ? "Deputado Federal" : "Senador"} ·{" "}
-            {politico.vigente ? "Em exercício" : "Histórico"}
+            {situacaoAtual
+              ? `${situacaoAtual.cargo} · em exercício`
+              : `${politico.cargo === "deputado" ? "Deputado Federal" : "Senador"} · ${
+                  politico.vigente ? "Em exercício" : "Histórico"
+                }`}
           </p>
+          {situacaoAtual && (
+            <p className={styles.cargoSecundario}>
+              {politico.cargo === "deputado" ? "Deputado Federal" : "Senador"} ·{" "}
+              {politico.vigente ? "em exercício" : "histórico"}
+            </p>
+          )}
           <div className={styles.chips}>
             <span className={styles.chip}>
               {politico.partido}/{politico.uf}
             </span>
             <span className={styles.chip}>
-              {politico.legislatura} legislatura
+              {legislaturaLabel(politico.legislatura)}
             </span>
+            {periodo && <span className={styles.chip}>{periodo}</span>}
             {bio?.idade !== undefined && (
               <span className={styles.chip}>{bio.idade} anos</span>
             )}
@@ -137,21 +165,68 @@ export function PoliticoSidePanel({
 
         <section className={styles.block}>
           <h3>
-            <Star size={12} aria-hidden /> Score de transparência
+            <Star size={12} aria-hidden /> Transparência
           </h3>
-          <p className={styles.score}>
-            {politico.transparencia.score}
-            <span>/100</span>
-          </p>
-          <p className={styles.muted}>{politico.transparencia.label}</p>
-          <div className={styles.barra} aria-hidden>
-            <span
-              style={{
-                width: `${Math.min(100, politico.transparencia.score)}%`,
-              }}
-            />
-          </div>
+          {politico.transparencia.score !== null ? (
+            <>
+              <p className={styles.score}>
+                {politico.transparencia.score}
+                <span>/100</span>
+              </p>
+              <p className={styles.muted}>{politico.transparencia.label}</p>
+              <div className={styles.barra} aria-hidden>
+                <span
+                  style={{
+                    width: `${Math.min(100, politico.transparencia.score)}%`,
+                  }}
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <p className={styles.score}>—</p>
+              <p className={styles.muted}>{politico.transparencia.label}</p>
+              <p className={styles.nota}>
+                {politico.cargo === "senador"
+                  ? "O Senado Federal não disponibiliza despesas de cota parlamentar (CEAP) nesta base; por isso não há índice de notas fiscais."
+                  : "O índice só é calculado quando há despesas de CEAP na legislatura analisada; mandatos encerrados podem não ter registros nessa base."}
+              </p>
+            </>
+          )}
         </section>
+
+        {cargos.length > 0 && (
+          <section className={styles.block}>
+            <h3>
+              <Landmark size={12} aria-hidden /> Trajetória pública
+            </h3>
+            <ul className={styles.trajetoria}>
+              {cargos.map((cargo) => (
+                <li
+                  key={`${cargo.cargo}-${cargo.inicio}`}
+                  className={cargo.atual ? styles.trajetoriaAtual : undefined}
+                >
+                  <div>
+                    <strong>{cargo.cargo}</strong>
+                    {cargo.atual && <em className={styles.atual}>em exercício</em>}
+                  </div>
+                  <span>
+                    {cargo.periodo} · {cargo.partido}
+                  </span>
+                  {cargo.vice && <span>Vice-presidente: {cargo.vice}</span>}
+                </li>
+              ))}
+            </ul>
+            <a
+              className={styles.linkFonte}
+              href={cargos[0].fonte.href}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {cargos[0].fonte.label} ↗
+            </a>
+          </section>
+        )}
 
         {bio && (bio.nascimento || bio.naturalidade || bio.nomeCivil) && (
           <section className={styles.block}>
@@ -204,7 +279,7 @@ export function PoliticoSidePanel({
             <ul className={styles.numeros}>
               <li>
                 <strong>{numero(atividade.votacoes)}</strong>
-                <span>votações</span>
+                <span>votos nominais</span>
               </li>
               <li>
                 <strong>{numero(atividade.discursos)}</strong>
@@ -251,7 +326,10 @@ export function PoliticoSidePanel({
             </div>
             <div>
               <dt>Legislatura</dt>
-              <dd>{politico.legislatura}</dd>
+              <dd>
+                {legislaturaLabel(politico.legislatura)}
+                {periodo ? ` (${periodo})` : ""}
+              </dd>
             </div>
             <div>
               <dt>Sexo</dt>
@@ -272,17 +350,21 @@ export function PoliticoSidePanel({
             <dl className={styles.dl}>
               <div>
                 <dt>Presença média</dt>
-                <dd>{politico.stats.presencaMedia}%</dd>
+                <dd>
+                  {politico.stats.presencaMedia === null
+                    ? "—"
+                    : `${politico.stats.presencaMedia}%`}
+                </dd>
               </div>
               <div>
-                <dt>Sessões de votação</dt>
+                <dt>Votos nominais analisados</dt>
                 <dd>{politico.stats.diasTrabalhados}</dd>
               </div>
               <div>
                 <dt>CEAP acumulado</dt>
                 <dd>
-                  {politico.cargo === "senador"
-                    ? "Não se aplica (Senado)"
+                  {politico.stats.ceapTotal === null
+                    ? "—"
                     : politico.stats.ceapTotal.toLocaleString("pt-BR", {
                         style: "currency",
                         currency: "BRL",
@@ -290,12 +372,20 @@ export function PoliticoSidePanel({
                 </dd>
               </div>
             </dl>
+            {politico.stats.presencaMedia === null && (
+              <p className={styles.nota}>
+                {politico.cargo === "senador"
+                  ? "O Senado não publica CEAP nesta base; a presença é calculada apenas para deputados em exercício."
+                  : "A presença é calculada apenas para deputados em exercício, com base nas votações nominais dos últimos 12 meses. Mandatos encerrados ficam sem o indicador."}
+              </p>
+            )}
           </section>
         )}
 
         <section className={styles.block}>
           <h3>
             <MapPin size={12} aria-hidden /> Gabinete
+            {politico.vigente ? "" : " (último registro)"}
           </h3>
           <dl className={styles.dl}>
             <div>

@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import { ArrowUpRight, LoaderCircle, Search, X } from "lucide-react";
+import { getCargoAtualPorNome } from "@/lib/cargos";
 import { loadPoliticosIndex, warmPoliticosIndex } from "@/lib/politicos-client";
 import { highlightName, searchPoliticos } from "@/lib/search-index";
 import type { PoliticoSummary } from "@/lib/types";
@@ -230,48 +231,59 @@ export function PoliticoSearch({
               Nenhum parlamentar encontrado para <strong>{busca}</strong>.
             </li>
           ) : (
-            results.map((p, i) => (
-              <li
-                key={`${p.cargo}-${p.id}`}
-                role="option"
-                aria-selected={i === ativoSeguro}
-                id={`${listId}-${p.cargo}-${p.id}`}
-              >
-                <button
-                  type="button"
-                  tabIndex={-1}
-                  className={`${styles.option} ${i === ativoSeguro ? styles.optionActive : ""}`}
-                  onMouseEnter={() => setAtivo(i)}
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => irPara(p)}
+            results.map((p, i) => {
+              const atual = getCargoAtualPorNome(p.nome);
+              return (
+                <li
+                  key={`${p.cargo}-${p.id}`}
+                  role="option"
+                  aria-selected={i === ativoSeguro}
+                  id={`${listId}-${p.cargo}-${p.id}`}
                 >
-                  <span className={styles.optionNome}>
-                    {highlightName(p.nome, buscaAdiada).map((parte, idx) =>
-                      parte.match ? (
-                        <mark key={idx} className={styles.mark}>
-                          {parte.text}
-                        </mark>
-                      ) : (
-                        <span key={idx}>{parte.text}</span>
-                      ),
-                    )}
-                  </span>
-                  <span className={styles.optionMeta}>
-                    <span>
-                      {p.partido}/{p.uf} ·{" "}
-                      {p.cargo === "deputado" ? "Deputado" : "Senador"}
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    className={`${styles.option} ${i === ativoSeguro ? styles.optionActive : ""}`}
+                    onMouseEnter={() => setAtivo(i)}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => irPara(p)}
+                  >
+                    <span className={styles.optionNome}>
+                      {highlightName(p.nome, buscaAdiada).map((parte, idx) =>
+                        parte.match ? (
+                          <mark key={idx} className={styles.mark}>
+                            {parte.text}
+                          </mark>
+                        ) : (
+                          <span key={idx}>{parte.text}</span>
+                        ),
+                      )}
                     </span>
-                    <span
-                      className={`${styles.status} ${
-                        p.vigente ? styles.statusAtivo : styles.statusHistorico
-                      }`}
-                    >
-                      {periodo(p)}
+                    <span className={styles.optionMeta}>
+                      <span>
+                        {p.partido}/{p.uf} ·{" "}
+                        {p.cargo === "deputado" ? "Deputado" : "Senador"}
+                        {atual && (
+                          <>
+                            {" · "}
+                            <em className={styles.presidente}>
+                              {atual.cargo}
+                            </em>
+                          </>
+                        )}
+                      </span>
+                      <span
+                        className={`${styles.status} ${
+                          p.vigente ? styles.statusAtivo : styles.statusHistorico
+                        }`}
+                      >
+                        {periodo(p)}
+                      </span>
                     </span>
-                  </span>
-                </button>
-              </li>
-            ))
+                  </button>
+                </li>
+              );
+            })
           )}
           {results.length > 0 && (
             <li className={styles.footer}>

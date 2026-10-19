@@ -1,7 +1,7 @@
 import type { PoliticoSummary } from "./types";
 
 /** Versão do formato compacto — mude ao alterar a tupla ou o score. */
-export const INDICE_VERSAO = 4;
+export const INDICE_VERSAO = 5;
 
 export const LEGISLATURA_BASE = 48;
 export const LEGISLATURA_ATUAL = 57;
@@ -53,7 +53,10 @@ export function periodosDeLegislaturas(
   const faixas: Array<[number, number]> = [];
   for (const leg of ordenadas) {
     const inicio = anoInicioLegislatura(leg);
-    const fim = inicio + 3;
+    // A legislatura dura quatro anos e termina no ano seguinte ao quarto
+    // ano de exercício: 48ª = 1987–1991, 57ª = 2023–2027. O antigo "+3"
+    // truncava o último ano (1987–1990) e contradizia os eventos da Câmara.
+    const fim = inicio + 4;
     const ultima = faixas[faixas.length - 1];
     if (ultima && inicio <= ultima[1] + 1) {
       ultima[1] = Math.max(ultima[1], fim);
@@ -75,7 +78,7 @@ function resumoDeLegislaturas(legislaturas: number[]) {
   const ordenadas = [...legislaturas].sort((a, b) => a - b);
   return {
     desde: anoInicioLegislatura(ordenadas[0]),
-    ate: anoInicioLegislatura(ordenadas[ordenadas.length - 1]) + 3,
+    ate: anoInicioLegislatura(ordenadas[ordenadas.length - 1]) + 4,
   };
 }
 

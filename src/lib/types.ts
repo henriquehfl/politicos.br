@@ -62,6 +62,11 @@ export interface TimelineEvent {
   discurso?: SpeechInfo;
 }
 
+export interface FonteDados {
+  label: string;
+  href: string;
+}
+
 export interface Comissao {
   sigla: string;
   titularidade: "Titular" | "Suplente";
@@ -130,13 +135,35 @@ export interface PoliticoAtividade {
   cargos?: number;
 }
 
+export interface MandatoCargo {
+  inicio: string;
+  fim?: string;
+  eleicao?: number;
+  observacao?: string;
+}
+
+export interface CargoPublico {
+  cargo: string;
+  /** Intervalo agrupado, ex.: "2003–2010" ou "2023–hoje". */
+  periodo: string;
+  inicio: string;
+  fim?: string;
+  atual: boolean;
+  partido: string;
+  vice?: string;
+  observacao?: string;
+  fonte: FonteDados;
+  mandatos: MandatoCargo[];
+}
+
 export interface Politico extends PoliticoSummary {
   nomeBusca: string;
   legislatura: string;
   sexo: string;
   escolaridade: string;
   condicao: string;
-  transparencia: { score: number; label: string };
+  /** Score calculado apenas quando há despesas de CEAP; null = sem base de cálculo. */
+  transparencia: { score: number | null; label: string };
   gabinete: {
     predio: string;
     sala: string;
@@ -145,10 +172,14 @@ export interface Politico extends PoliticoSummary {
   };
   comissoes: Comissao[];
   stats?: {
-    presencaMedia: number;
+    presencaMedia: number | null;
     diasTrabalhados: number;
-    ceapTotal: number;
+    ceapTotal: number | null;
   };
+  /** Trajetória além do mandato parlamentar (ex.: Presidência da República). */
+  cargos?: CargoPublico[];
+  /** Cargo em exercício, quando houver. */
+  situacaoAtual?: CargoPublico | null;
   events: TimelineEvent[];
   expenses?: Expense[];
   bio?: PoliticoBio;

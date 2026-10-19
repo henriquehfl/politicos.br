@@ -1,5 +1,6 @@
 import { cacheLife } from "next/cache";
 import { CAMARA, fetchJson } from "./http";
+import { buildCargoEvents, getCargosPublicos } from "@/lib/cargos";
 import { buildMediaLinks } from "@/lib/media";
 import type {
   Comissao,
@@ -211,7 +212,7 @@ export async function getDeputadoDetalhe(id: string): Promise<CamaraDetalhe | nu
  */
 export async function getDeputadoResumo(
   id: string,
-): Promise<{ nome: string; partido: string; uf: string } | null> {
+): Promise<{ nome: string; partido: string; uf: string; nascimento?: string } | null> {
   "use cache";
   cacheLife("hours");
 
@@ -223,6 +224,7 @@ export async function getDeputadoResumo(
     nome: s?.nome ?? detalhe.dados.nomeCivil ?? "Deputado",
     partido: s?.siglaPartido ?? "—",
     uf: s?.siglaUf ?? "—",
+    nascimento: detalhe.dados.dataNascimento,
   };
 }
 
@@ -670,6 +672,11 @@ export async function buildDeputado(id: string): Promise<Politico | null> {
       .filter(Boolean)
       .join(" / ") || undefined;
   const anoLegislatura = 2023 - (57 - legislatura) * 4;
+  const cargos = getCargosPublicos(nome, detalhe.dados.dataNascimento);
+  const cargoAtual = cargos.find((cargo) => cargo.atual) ?? null;
+  const vigente =
+    (s?.descricaoStatus ?? "").toLowerCase().includes("exerc") ||
+    (s?.situacao ?? "").toLowerCase().includes("exerc");
 
   const events = buildDeputadoEvents({
     deputadoId: id,
@@ -709,23 +716,31 @@ export async function buildDeputado(id: string): Promise<Politico | null> {
     (e) => e.impact === "critico" || e.discurso?.polemico,
   ).length;
 
-  // Presença estimada: sessões nominais varridas vs. sessões com voto do deputado
+  // A linha do tempo parlamentar continua sendo a base; a trajetória
+  // presidencial (quando houver) é anexada como eventos oficiais.
+  const eventosComCargos = [...events, ...buildCargoEvents(cargos, id)];
+
+  // Presença estimada apenas para quem está em exercício: sessões nominais
+  // varridas vs. sessões com voto do deputado. Mandatos encerrados não têm
+  // janela recente e ficam sem o indicador (null) em vez de 0%.
   const votacoesComVoto = votacoes.length;
-  const presencaMedia = votacaoInfo.nominais
-    ? Math.round((votacoesComVoto / votacaoInfo.nominais) * 100)
-    : 0;
+  const presencaMedia =
+    vigente && votacaoInfo.nominais
+      ? Math.round((votacoesComVoto / votacaoInfo.nominais) * 100)
+      : null;
 
   const ceap = sumExpenses(despesas);
   const comNF = despesas.filter((d) => d.urlDocumento).length;
-  const scoreNF = despesas.length ? Math.round((comNF / despesas.length) * 100) : 50;
+  const scoreNF = despesas.length
+    ? Math.round((comNF / despesas.length) * 100)
+    : null;
 
   return {
     id,
     nome,
     nomeBusca: `${s?.nome ?? ""} ${s?.siglaPartido ?? ""} ${s?.siglaUf ?? ""}`.toLowerCase(),
     cargo: "deputado",
-    vigente: (s?.descricaoStatus ?? "").toLowerCase().includes("exerc") ||
-      (s?.situacao ?? "").toLowerCase().includes("exerc"),
+    vigente,
     uf: s?.siglaUf ?? "—",
     partido: s?.siglaPartido ?? "—",
     fotoUrl: s?.urlFoto,
@@ -736,11 +751,13 @@ export async function buildDeputado(id: string): Promise<Politico | null> {
     transparencia: {
       score: scoreNF,
       label:
-        scoreNF >= 80
-          ? "Boa transparência"
-          : scoreNF >= 50
-            ? "Transparência moderada"
-            : "Transparência baixa",
+        scoreNF === null
+          ? "Sem dados de CEAP no período"
+          : scoreNF >= 80
+            ? "Boa transparência"
+            : scoreNF >= 50
+              ? "Transparência moderada"
+              : "Transparência baixa",
     },
     gabinete: {
       predio: s?.gabinete?.predio ?? "—",
@@ -752,9 +769,11 @@ export async function buildDeputado(id: string): Promise<Politico | null> {
     stats: {
       presencaMedia,
       diasTrabalhados: votacoesComVoto,
-      ceapTotal: ceap,
+      ceapTotal: despesas.length ? ceap : null,
     },
-    events,
+    cargos,
+    situacaoAtual: cargoAtual,
+    events: eventosComCargos,
     bio: {
       nomeCivil: detalhe.dados.nomeCivil,
       nascimento: detalhe.dados.dataNascimento,

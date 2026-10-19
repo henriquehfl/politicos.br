@@ -202,6 +202,16 @@
   background: #1a140c;
 }
 
+.presidente {
+  padding: 0.08rem 0.32rem;
+  border: 1px solid rgba(224, 176, 122, 0.45);
+  border-radius: 999px;
+  color: #e0b07a;
+  font-style: normal;
+  font-size: 0.58rem;
+  white-space: nowrap;
+}
+
 .mark {
   background: transparent;
   color: var(--accent);

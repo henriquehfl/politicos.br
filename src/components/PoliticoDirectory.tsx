@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, LoaderCircle, Search, X } from "lucide-react";
+import { getCargoAtualPorNome } from "@/lib/cargos";
 import { loadPoliticosIndex } from "@/lib/politicos-client";
 import { searchPoliticos } from "@/lib/search-index";
 import type { PoliticoSummary } from "@/lib/types";
@@ -159,35 +160,47 @@ export function PoliticoDirectory({
           </p>
 
           <ul className={styles.grid}>
-            {mostrados.map((p, i) => (
-              <li
-                key={p.id}
-                className={styles.item}
-                style={{ ["--i" as string]: i % 12 }}
-              >
-                <Link href={`${rotulo.base}/${p.id}`} className={styles.card}>
-                  <span className={styles.cardTopo}>
-                    <span className={styles.nome}>{p.nome}</span>
-                    <span
-                      className={`${styles.selo} ${
-                        p.vigente ? styles.seloAtivo : styles.seloHistorico
-                      }`}
-                    >
-                      {p.vigente ? "Em exercício" : "Histórico"}
+            {mostrados.map((p, i) => {
+              const atual = getCargoAtualPorNome(p.nome);
+              return (
+                <li
+                  key={p.id}
+                  className={styles.item}
+                  style={{ ["--i" as string]: i % 12 }}
+                >
+                  <Link href={`${rotulo.base}/${p.id}`} className={styles.card}>
+                    <span className={styles.cardTopo}>
+                      <span className={styles.nome}>{p.nome}</span>
+                      <span
+                        className={`${styles.selo} ${
+                          atual
+                            ? styles.seloPresidente
+                            : p.vigente
+                              ? styles.seloAtivo
+                              : styles.seloHistorico
+                        }`}
+                        title={atual?.cargo}
+                      >
+                        {atual
+                          ? "Presidente"
+                          : p.vigente
+                            ? "Em exercício"
+                            : "Histórico"}
+                      </span>
                     </span>
-                  </span>
-                  <span className={styles.meta}>
-                    <span>
-                      {p.partido}/{p.uf}
+                    <span className={styles.meta}>
+                      <span>
+                        {p.partido}/{p.uf}
+                      </span>
+                      <span>{anos(p)}</span>
                     </span>
-                    <span>{anos(p)}</span>
-                  </span>
-                  <span className={styles.verPerfil}>
-                    Ver linha do tempo <ArrowRight size={13} aria-hidden />
-                  </span>
-                </Link>
-              </li>
-            ))}
+                    <span className={styles.verPerfil}>
+                      Ver linha do tempo <ArrowRight size={13} aria-hidden />
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
 
           {restantes > 0 && (

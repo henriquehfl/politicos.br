@@ -115,6 +115,60 @@
   margin-top: 0.35rem;
 }
 
+.cargoSecundario {
+  margin-top: 0.2rem;
+  font-size: 0.7rem;
+  color: var(--muted);
+  opacity: 0.85;
+}
+
+.trajetoria {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.trajetoria li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-elevated);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.trajetoria li > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.trajetoria strong {
+  color: var(--foreground);
+  font-size: 0.78rem;
+}
+
+.trajetoria li.trajetoriaAtual {
+  border-color: rgba(224, 176, 122, 0.45);
+  background: rgba(224, 176, 122, 0.06);
+}
+
+.atual {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.55rem;
+  font-style: normal;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #e0b07a;
+  white-space: nowrap;
+}
+
 .chips {
   display: flex;
   flex-wrap: wrap;

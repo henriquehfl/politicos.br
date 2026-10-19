@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FileText, Mic, Vote } from "lucide-react";
+import { ExternalLink, FileText, Landmark, Mic, Vote } from "lucide-react";
 import type { Politico } from "@/lib/types";
 import { CentralTimeline } from "./CentralTimeline";
 import { PoliticoSearch } from "./PoliticoSearch";
@@ -12,9 +12,26 @@ interface PoliticoProfileViewProps {
   politico: Politico;
 }
 
+/** "48" ou "57ª" -> "48ª legislatura" */
+function legislaturaLabel(valor: string): string {
+  if (!/^\d+/.test(valor)) return "Legislatura não informada";
+  return `${valor.replace(/[ªa]$/i, "")}ª legislatura`;
+}
+
+/** Ano inicial e final da legislatura (48ª = 1987–1991; 57ª = 2023–2027). */
+function periodoLegislatura(valor: string): string | null {
+  const numero = Number(valor.replace(/\D/g, ""));
+  if (!Number.isInteger(numero) || numero < 48 || numero > 57) return null;
+  const inicio = 2023 - (57 - numero) * 4;
+  return `${inicio}–${inicio + 4}`;
+}
+
 export function PoliticoProfileView({ politico }: PoliticoProfileViewProps) {
   const [modo, setModo] = useState<"auto" | "aberto" | "fechado">("auto");
   const atividade = politico.atividade;
+  const situacaoAtual =
+    politico.situacaoAtual ?? politico.cargos?.find((cargo) => cargo.atual) ?? null;
+  const periodo = periodoLegislatura(politico.legislatura);
 
   const alternarPainel = () => {
     const desktop =
@@ -62,9 +79,23 @@ export function PoliticoProfileView({ politico }: PoliticoProfileViewProps) {
                 · {politico.partido}/{politico.uf}
               </p>
               <h1 className={styles.title}>{politico.nome}</h1>
+              {situacaoAtual && (
+                <a
+                  className={styles.situacaoAtual}
+                  href={situacaoAtual.fonte.href}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <Landmark size={13} aria-hidden />
+                  {situacaoAtual.cargo} · em exercício desde{" "}
+                  {situacaoAtual.inicio.slice(0, 4)}
+                  <ExternalLink size={11} aria-hidden />
+                </a>
+              )}
               <p className={styles.subtitle}>
                 {politico.vigente ? "Em exercício" : "Histórico"} ·{" "}
-                {politico.legislatura} legislatura · mais recente primeiro
+                {legislaturaLabel(politico.legislatura)}
+                {periodo ? ` (${periodo})` : ""} · mais recente primeiro
               </p>
             </div>
           </div>
@@ -74,7 +105,7 @@ export function PoliticoProfileView({ politico }: PoliticoProfileViewProps) {
               <li>
                 <Vote size={13} aria-hidden />
                 <strong>{atividade.votacoes.toLocaleString("pt-BR")}</strong>
-                <span>votações</span>
+                <span>votos registrados</span>
               </li>
               <li>
                 <Mic size={13} aria-hidden />

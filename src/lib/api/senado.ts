@@ -1,5 +1,6 @@
 import { cacheLife } from "next/cache";
 import { SENADO, fetchJson } from "./http";
+import { buildCargoEvents, getCargosPublicos } from "@/lib/cargos";
 import { buildMediaLinks } from "@/lib/media";
 import type { Comissao, Politico, TimelineEvent, VotePosition } from "@/lib/types";
 
@@ -225,7 +226,7 @@ export async function getSenadorDetalhe(id: string): Promise<SenadorBasico | nul
  */
 export async function getSenadorResumo(
   id: string,
-): Promise<{ nome: string; partido: string; uf: string } | null> {
+): Promise<{ nome: string; partido: string; uf: string; nascimento?: string } | null> {
   "use cache";
   cacheLife("hours");
 
@@ -236,6 +237,7 @@ export async function getSenadorResumo(
     nome: basico.NomeParlamentar ?? "Senador",
     partido: basico.SiglaPartidoParlamentar ?? "—",
     uf: basico.UfParlamentar ?? "—",
+    nascimento: basico.DadosBasicosParlamentar?.DataNascimento,
   };
 }
 
@@ -769,6 +771,11 @@ export async function buildSenador(id: string): Promise<Politico | null> {
   ]);
 
   const nome = basico.NomeParlamentar ?? "Senador";
+  const cargosPublicos = getCargosPublicos(
+    nome,
+    basico.DadosBasicosParlamentar?.DataNascimento,
+  );
+  const cargoAtual = cargosPublicos.find((cargo) => cargo.atual) ?? null;
   const naturalidade =
     [
       basico.DadosBasicosParlamentar?.Naturalidade,
@@ -815,16 +822,9 @@ export async function buildSenador(id: string): Promise<Politico | null> {
   const polemicas = events.filter(
     (e) => e.impact === "critico" || e.discurso?.polemico,
   ).length;
+  const eventosComCargos = [...events, ...buildCargoEvents(cargosPublicos, id)];
 
-  // Presença = sessões em que não houve ausência justificada
-  // (MIS = missão oficial da Casa, AP = atividade parlamentar).
   const totalVotacoes = votacoes.length;
-  const ausencias = votacoes.filter((v) =>
-    /^(mis|ap)$/i.test((v.VotoParlamentar ?? "").trim()),
-  ).length;
-  const presencaMedia = totalVotacoes
-    ? Math.round(((totalVotacoes - ausencias) / totalVotacoes) * 100)
-    : 0;
 
   const telefones = asArray(basico.Telefones?.Telefone ?? [])
     .map((t) => t.NumeroTelefone)
@@ -856,8 +856,8 @@ export async function buildSenador(id: string): Promise<Politico | null> {
     escolaridade: "—",
     condicao,
     transparencia: {
-      score: Math.min(95, 50 + Math.round(discursos.length / 20)),
-      label: "Transparência moderada",
+      score: null,
+      label: "Sem dados de CEAP no Senado",
     },
     gabinete: {
       predio: "Senado Federal",
@@ -867,11 +867,13 @@ export async function buildSenador(id: string): Promise<Politico | null> {
     },
     comissoes,
     stats: {
-      presencaMedia,
+      presencaMedia: null,
       diasTrabalhados: totalVotacoes,
-      ceapTotal: 0,
+      ceapTotal: null,
     },
-    events,
+    cargos: cargosPublicos,
+    situacaoAtual: cargoAtual,
+    events: eventosComCargos,
     bio: {
       nomeCivil: basico.NomeCompletoParlamentar,
       nascimento: basico.DadosBasicosParlamentar?.DataNascimento,

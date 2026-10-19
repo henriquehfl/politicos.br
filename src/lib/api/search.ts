@@ -218,7 +218,7 @@ function finalizar(entradas: Map<string, Entrada>, vigentes: Set<string>) {
       fotoUrl: entrada.fotoUrl,
       legislaturas,
       desde: ANO_INICIO_LEGISLATURA(legislaturas[0]),
-      ate: ANO_INICIO_LEGISLATURA(legislaturas[legislaturas.length - 1]) + 3,
+      ate: ANO_INICIO_LEGISLATURA(legislaturas[legislaturas.length - 1]) + 4,
       periodos: periodosDeLegislaturas(legislaturas, vigente),
     };
   });
