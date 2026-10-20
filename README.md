@@ -5,7 +5,8 @@ Plataforma para explorar a política brasileira com **dados abertos oficiais**: 
 ## Destaques
 
 - **Busca instantânea** em um índice local com ~4.100 parlamentares (deputados e senadores, ativos e históricos, da 48ª legislatura em diante), com apelidos (`lula`, `dilma`, `fhc`), partido/UF, iniciais e destaque de correspondência.
-- **Listagens completas** em `/deputados` e `/senadores`, com filtros por legislatura, busca, períodos de mandato corretos (ex.: `1987–2002 · 2019–hoje`) e carregamento incremental.
+- **Listagens completas** em `/politicos` (Câmara + Senado), `/deputados` e `/senadores`, com filtros por Casa (na visão unificada) e situação, busca por nome, UF, partido ou cargo, fotos oficiais e carregamento incremental.
+- **Ranking transparente** com até 50 parlamentares, nota de 0 a 100 por pronunciamentos e comissões ativas, decomposição por critério e fórmula aberta em `/ranking`.
 - **Dossiês** com biografia, redes oficiais, atividade parlamentar, comissões, frentes, profissões, mandatos, CEAP, polêmicas e links para notícias e vídeos.
 - **Painel lateral** com foto, score de transparência e fontes, aberto automaticamente no desktop e recolhido no mobile.
 - **Linha do tempo do Brasil** com 47 marcos (1988–2026), datas, protagonistas e fontes.

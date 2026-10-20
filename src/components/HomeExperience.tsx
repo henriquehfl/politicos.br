@@ -13,8 +13,8 @@ export function HomeExperience() {
         <h1 className={styles.headline}>Política brasileira em linha do tempo</h1>
         <p className={styles.lead}>
           {historicoBrasilEvents.length} marcos da história recente e a carreira
-          completa de deputados e senadores — ativos e históricos. Clique em
-          qualquer evento para ver detalhes, protagonistas e fontes.
+          completa de políticos da Câmara e do Senado — ativos e históricos.
+          Clique em qualquer evento para ver detalhes, protagonistas e fontes.
         </p>
         <PoliticoSearch />
         <p className={styles.fontes}>

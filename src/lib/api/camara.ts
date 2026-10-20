@@ -68,6 +68,16 @@ interface CamaraFrente {
   titulo: string;
 }
 
+interface CamaraOrgaoMembro {
+  siglaOrgao?: string;
+  nomeOrgao?: string;
+  titulo?: string;
+  sigla?: string;
+  nome?: string;
+  dataInicio?: string | null;
+  dataFim?: string | null;
+}
+
 interface CamaraOcupacao {
   titulo: string | null;
   entidade: string | null;
@@ -398,9 +408,9 @@ export async function getDeputadoOrgaos(
   id: string,
   legislatura: number,
 ): Promise<Comissao[]> {
-  const data = await fetchJson<{
-    dados: { siglaOrgao?: string; nomeOrgao?: string; titulo?: string; sigla?: string; nome?: string }[];
-  }>(`${CAMARA}/deputados/${id}/orgaos?idLegislatura=${legislatura}&itens=100`);
+  const data = await fetchJson<{ dados: CamaraOrgaoMembro[] }>(
+    `${CAMARA}/deputados/${id}/orgaos?idLegislatura=${legislatura}&itens=100`,
+  );
   const rows = data?.dados ?? [];
   return rows
     .map((r) => ({
@@ -412,6 +422,64 @@ export async function getDeputadoOrgaos(
       nome: r.nomeOrgao ?? r.nome ?? "",
     }))
     .filter((c) => c.nome);
+}
+
+/**
+ * Colegiados ainda ativos no mandato atual (comissões, CPIs, conselhos).
+ * Usado pelo ranking; a linha do tempo continua usando `getDeputadoOrgaos`.
+ */
+export async function getDeputadoComissoesAtivas(
+  id: string,
+  legislatura: number,
+): Promise<Comissao[]> {
+  const data = await fetchJson<{ dados: CamaraOrgaoMembro[] }>(
+    `${CAMARA}/deputados/${id}/orgaos?idLegislatura=${legislatura}&itens=100`,
+  );
+  return (data?.dados ?? [])
+    .filter((r) => !r.dataFim)
+    .map((r) => ({
+      sigla: (r.siglaOrgao ?? r.sigla ?? "—").toUpperCase(),
+      titularidade:
+        (r.titulo ?? "").toLowerCase().includes("suplente")
+          ? ("Suplente" as const)
+          : ("Titular" as const),
+      nome: r.nomeOrgao ?? r.nome ?? "",
+    }))
+    .filter((c) => c.nome);
+}
+
+/**
+ * Conta os pronunciamentos da legislatura atual sem baixar todas as páginas.
+ * A API informa a última página em `links`; basta buscar a primeira e a última
+ * para obter o total exato.
+ */
+export async function contarDiscursosDeputado(
+  id: string,
+  legislatura: number,
+): Promise<number> {
+  const base = `${CAMARA}/deputados/${id}/discursos?idLegislatura=${legislatura}&itens=100&ordem=DESC&ordenarPor=dataHoraInicio`;
+  const primeira = await fetchJson<{
+    dados: CamaraDiscurso[];
+    links?: Array<{ rel: string; href: string }>;
+  }>(`${base}&pagina=1`, { timeoutMs: 20000 });
+  if (!primeira?.dados?.length) return 0;
+
+  const ultima =
+    Number(
+      primeira.links
+        ?.find((l) => l.rel === "last")
+        ?.href.match(/[?&]pagina=(\d+)/)?.[1] ?? 1,
+    ) || 1;
+  if (ultima <= 1) return primeira.dados.length;
+
+  const ultimaPagina = await fetchJson<{ dados: CamaraDiscurso[] }>(
+    `${base}&pagina=${ultima}`,
+    { timeoutMs: 20000 },
+  );
+
+  return (
+    (ultima - 1) * primeira.dados.length + (ultimaPagina?.dados?.length ?? 0)
+  );
 }
 
 /**

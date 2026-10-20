@@ -83,6 +83,29 @@ function wordsStartWith(nomeTokens: string[], tokens: string[]): boolean {
   );
 }
 
+/** Termos aceitos para buscar por Casa/cargo (ex.: "senadora", "Câmara"). */
+function termosDeCargo(cargo: PoliticoSummary["cargo"]): string[] {
+  return cargo === "deputado"
+    ? [
+        "deputado",
+        "deputada",
+        "deputados",
+        "deputadas",
+        "deputado federal",
+        "deputada federal",
+        "camara",
+        "camara dos deputados",
+      ]
+    : [
+        "senador",
+        "senadora",
+        "senadores",
+        "senadoras",
+        "senado",
+        "senado federal",
+      ];
+}
+
 function scoreOne(
   politico: PoliticoSummary,
   query: string,
@@ -115,6 +138,15 @@ function scoreOne(
     if (!score && uf === query) score = 380;
     if (!score && partido.startsWith(query)) score = 320;
     if (!score && uf.startsWith(query)) score = 280;
+    if (
+      !score &&
+      query.length >= 3 &&
+      termosDeCargo(politico.cargo).some(
+        (termo) => termo === query || termo.startsWith(query),
+      )
+    ) {
+      score = 240;
+    }
     if (!score && tokens.length > 1) {
       const todosPartidoOuUf = tokens.every(
         (t) =>

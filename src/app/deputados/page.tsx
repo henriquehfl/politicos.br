@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { CasaNav } from "@/components/CasaNav";
 import { PoliticoDirectory } from "@/components/PoliticoDirectory";
 import styles from "../listagem.module.css";
 
@@ -16,9 +17,10 @@ export default function DeputadosPage() {
         <h1 className={styles.title}>Deputados Federais</h1>
         <p className={styles.subtitle}>
           Todos os que exerceram mandato desde a Constituinte — em exercício e
-          históricos. Busque por nome, UF ou partido.
+          históricos. Busque por nome, UF, partido ou cargo.
         </p>
       </header>
+      <CasaNav ativo="deputado" />
       <PoliticoDirectory cargo="deputado" />
     </main>
   );

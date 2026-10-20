@@ -134,8 +134,7 @@ export function PoliticoSearch({
   };
 
   const verTodos = () => {
-    const cargo = results[0]?.cargo ?? "deputado";
-    const base = cargo === "deputado" ? "/deputados" : "/senadores";
+    const base = "/politicos";
     setOpen(false);
     router.push(`${base}?busca=${encodeURIComponent(busca)}`);
   };
@@ -169,7 +168,7 @@ export function PoliticoSearch({
       className={`${styles.wrap} ${compact ? styles.wrapCompact : ""}`}
     >
       <label className={styles.label} htmlFor="politico-search">
-        Buscar parlamentar
+        Buscar político
       </label>
       <div className={`${styles.field} ${open ? styles.fieldOpen : ""}`}>
         <Search className={styles.fieldIcon} size={16} aria-hidden />
@@ -187,7 +186,7 @@ export function PoliticoSearch({
               : undefined
           }
           className={styles.input}
-          placeholder="Nome, UF ou partido — ativos e históricos…"
+          placeholder="Nome, UF, partido ou cargo — ativos e históricos…"
           value={query}
           onChange={(event) => {
             setQuery(event.target.value);
@@ -228,7 +227,7 @@ export function PoliticoSearch({
             </li>
           ) : results.length === 0 ? (
             <li className={styles.empty}>
-              Nenhum parlamentar encontrado para <strong>{busca}</strong>.
+              Nenhum político encontrado para <strong>{busca}</strong>.
             </li>
           ) : (
             results.map((p, i) => {

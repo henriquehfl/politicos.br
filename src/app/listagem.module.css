@@ -28,7 +28,41 @@
 .subtitle {
   color: var(--muted);
   font-size: 0.9rem;
+  max-width: 62ch;
+  margin-bottom: 0.95rem;
+}
+
+.casaNav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
   margin-bottom: 2rem;
+}
+
+.casaLink {
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.casaLink:hover {
+  color: var(--foreground);
+  border-color: #3a3734;
+}
+
+.casaAtivo {
+  color: var(--foreground);
+  border-color: var(--accent-muted);
+  background: var(--surface-elevated);
 }
 
 .grid {

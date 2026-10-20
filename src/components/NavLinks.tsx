@@ -2,31 +2,27 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Landmark, Trophy, Users, Vote } from "lucide-react";
+import { NAV_ITEMS, navItemAtivo } from "./nav-items";
 import styles from "./navbar.module.css";
-
-const LINKS = [
-  { href: "/deputados", label: "Deputados", icon: Users },
-  { href: "/senadores", label: "Senadores", icon: Landmark },
-  { href: "/ranking", label: "Ranking", icon: Trophy },
-  { href: "/votacoes", label: "Votações", icon: Vote },
-];
 
 export function NavLinks() {
   const pathname = usePathname();
 
   return (
     <nav className={styles.nav} aria-label="Principal">
-      {LINKS.map(({ href, label, icon: Icon }) => {
-        const ativo = pathname === href || pathname.startsWith(`${href}/`);
+      {NAV_ITEMS.map((item) => {
+        const { href, label, icon: Icon } = item;
+        const ativo = navItemAtivo(pathname, item);
         return (
           <Link
             key={href}
             href={href}
             className={`${styles.link} ${ativo ? styles.linkAtivo : ""}`}
             aria-current={ativo ? "page" : undefined}
+            aria-label={label}
+            title={label}
           >
-            <Icon size={13} aria-hidden />
+            <Icon size={14} aria-hidden />
             <span>{label}</span>
           </Link>
         );
