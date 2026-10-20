@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { Landmark } from "lucide-react";
 import { NAV_ITEMS } from "./nav-items";
 import { NavLinks } from "./NavLinks";
 import styles from "./navbar.module.css";
@@ -28,9 +27,6 @@ export function Navbar() {
   return (
     <header className={styles.header}>
       <Link href="/" className={styles.brand} aria-label="POLITICOS.BR — início">
-        <span className={styles.brandMark} aria-hidden>
-          <Landmark size={16} />
-        </span>
         <span className={styles.brandText}>
           <span className={styles.brandName}>
             POLITICOS<span>.BR</span>
@@ -39,17 +35,19 @@ export function Navbar() {
         </span>
       </Link>
 
-      <Suspense fallback={<NavFallback />}>
-        <NavLinks />
-      </Suspense>
+      <div className={styles.navArea}>
+        <span
+          className={styles.status}
+          title="Índice unificado com Câmara dos Deputados e Senado Federal"
+        >
+          <span className={styles.statusDot} aria-hidden />
+          Câmara + Senado
+        </span>
 
-      <span
-        className={styles.status}
-        title="Índice unificado com Câmara dos Deputados e Senado Federal"
-      >
-        <span className={styles.statusDot} aria-hidden />
-        Câmara + Senado
-      </span>
+        <Suspense fallback={<NavFallback />}>
+          <NavLinks />
+        </Suspense>
+      </div>
     </header>
   );
 }

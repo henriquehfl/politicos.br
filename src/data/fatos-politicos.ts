@@ -1,4 +1,8 @@
-import type { FonteDados, TimelineCategory } from "@/lib/types";
+import type {
+  CitacaoEvento,
+  FonteDados,
+  TimelineCategory,
+} from "@/lib/types";
 
 /**
  * Fatos históricos curados que não existem nas APIs do Congresso.
@@ -39,6 +43,8 @@ export interface FatoPolitico {
   tipo: TipoFatoPolitico;
   /** Marca falas/posts com repercussão pública e tom de embate. */
   polemico?: boolean;
+  /** Trecho literal da fala/publicação, quando houver. */
+  citacao?: CitacaoEvento;
   fontes: FonteDados[];
 }
 
@@ -402,6 +408,155 @@ export const FATOS_POLITICOS: FatoPolitico[] = [
     impacto: "critico",
     tipo: "governo",
     fontes: [CAMARA, STF],
+  },
+
+  {
+    id: "lula-fala-toque-2026",
+    pessoa: "LUIZ INÁCIO LULA DA SILVA",
+    aliases: ["LULA"],
+    nascimento: "1945-10-27",
+    data: "2026-09-28",
+    titulo: "Fala sobre “tomar toque” em comício",
+    resumo:
+      "Declaração sobre exames de próstata repercute e vira disputa eleitoral.",
+    detalhe:
+      "Em 28/09/2026, durante comício em Belém (PA), Lula defendeu a prevenção ao câncer de próstata e afirmou que as mulheres aprendem a “tomar toque” desde pequenas, em referência a exames ginecológicos. A fala foi criticada pela oposição; a campanha petista disse que a comparação tratava de exames preventivos e acionou o TSE contra publicações do deputado Nikolas Ferreira (PL-MG).",
+    categoria: "discurso",
+    impacto: "critico",
+    tipo: "declaracao",
+    polemico: true,
+    citacao: {
+      texto:
+        "As mulheres aprendem a tomar toque desde pequenas. O homem não, ele é cheio de trejeitos. Ele não sabe que, quando ele tiver câncer de próstata, vão dar muito toque nele.",
+      autor: "Lula",
+      contexto: "Comício em Belém (PA), 28/09/2026",
+    },
+    fontes: [
+      {
+        label: "Poder360 — fala e contexto",
+        href: "https://www.poder360.com.br/poder-eleicoes-2026/assista-ao-video-de-lula-sobre-cancer-de-prostata-e-mulher-tomar-toque/",
+        tipo: "noticia",
+        veiculo: "Poder360",
+        data: "2026-09-29",
+      },
+      {
+        label: "Vídeo da fala",
+        href: "https://www.youtube.com/watch?v=f94OsFSdh8o",
+        tipo: "video",
+        veiculo: "Poder360",
+        data: "2026-09-29",
+      },
+    ],
+  },
+
+  {
+    id: "lula-nikolas-janja-2026",
+    pessoa: "LUIZ INÁCIO LULA DA SILVA",
+    aliases: ["LULA"],
+    nascimento: "1945-10-27",
+    data: "2026-09-29",
+    titulo: "Lula chama Nikolas de “canalha”; Janja reage",
+    resumo:
+      "Em Salvador, Lula critica deputado por distorcer a fala sobre exames; primeira-dama sobe o tom.",
+    detalhe:
+      "Em 29/09/2026, em comício em Salvador (BA), Lula chamou o deputado Nikolas Ferreira (PL-MG) de “canalha” e disse que o parlamentar distorceu a declaração sobre exames preventivos. Janja Lula da Silva também reagiu ao deputado. A campanha de Lula acionou o TSE contra duas publicações de Nikolas sobre o tema e divulgou nota afirmando que a fala se referia a exames ginecológicos.",
+    categoria: "discurso",
+    impacto: "critico",
+    tipo: "declaracao",
+    polemico: true,
+    fontes: [
+      {
+        label: "Poder360 — repercussão e nota da campanha",
+        href: "https://www.poder360.com.br/poder-eleicoes-2026/lula-pede-que-janja-explique-fala-sobre-toque-e-critica-nikolas/",
+        tipo: "noticia",
+        veiculo: "Poder360",
+        data: "2026-09-29",
+      },
+      {
+        label: "O Globo — fala de Lula e reação de Janja",
+        href: "https://oglobo.globo.com/politica/eleicoes-2026/noticia/2026/09/29/lula-chama-nikolas-de-canalha-por-explorar-fala-sobre-exame-ginecologico-e-janja-eleva-o-tom-pia-de-bosta.ghtml",
+        tipo: "noticia",
+        veiculo: "O Globo",
+        data: "2026-09-29",
+      },
+      {
+        label: "Vídeo — Janja responde a Nikolas",
+        href: "https://www.youtube.com/watch?v=v3RNpxZvdGs",
+        tipo: "video",
+        veiculo: "Poder360",
+        data: "2026-09-29",
+      },
+    ],
+  },
+
+  {
+    id: "lula-debate-band-2026",
+    pessoa: "LUIZ INÁCIO LULA DA SILVA",
+    aliases: ["LULA"],
+    nascimento: "1945-10-27",
+    data: "2026-10-18",
+    titulo: "Primeiro debate do 2º turno com Flávio Bolsonaro",
+    resumo:
+      "Debate na Band tem acusações sobre SUS, Banco Master, INSS e sigilos.",
+    detalhe:
+      "Em 18/10/2026, Lula e Flávio Bolsonaro (PL) se enfrentaram no primeiro debate do segundo turno, na Band. O encontro teve acusações de corrupção, troca de ataques sobre investigações do Banco Master e fraudes no INSS, além de propostas econômicas. Lula questionou se o adversário pretendia privatizar o SUS e cobrou a abertura de sigilos bancário e telefônico.",
+    categoria: "eleicao",
+    impacto: "alerta",
+    tipo: "eleicao",
+    polemico: true,
+    citacao: {
+      texto: "Será que ele quer privatizar o SUS? É isso que eu entendi?",
+      autor: "Lula",
+      contexto: "Debate na Band, 18/10/2026",
+    },
+    fontes: [
+      {
+        label: "InfoMoney — resumo do debate",
+        href: "https://www.infomoney.com.br/politica/debate-entre-lula-e-flavio-tem-ataques-acusacoes-e-propostas/",
+        tipo: "noticia",
+        veiculo: "InfoMoney",
+        data: "2026-10-18",
+      },
+      {
+        label: "Vídeo — íntegra do debate",
+        href: "https://www.youtube.com/watch?v=X1fp4JzouvA",
+        tipo: "video",
+        veiculo: "BandNews FM",
+        data: "2026-10-19",
+      },
+    ],
+  },
+
+  {
+    id: "lula-meta-tse-2026",
+    pessoa: "LUIZ INÁCIO LULA DA SILVA",
+    aliases: ["LULA"],
+    nascimento: "1945-10-27",
+    data: "2026-10-19",
+    titulo: "Campanha aciona TSE contra a Meta",
+    resumo:
+      "Coligação alega favorecimento a Flávio Bolsonaro e descumprimento de decisão judicial.",
+    detalhe:
+      "Em 19/10/2026, a campanha de Lula voltou a acionar o TSE alegando que a Meta descumpriu a ordem de garantir isonomia entre as candidaturas no segundo turno. A coligação afirmou que ferramentas de inteligência artificial e traduções automáticas seguiam favorecendo Flávio Bolsonaro e pediu o aumento da multa diária para R$ 1 milhão. As alegações constam da ação protocolada; o mérito cabe à Justiça Eleitoral.",
+    categoria: "eleicao",
+    impacto: "alerta",
+    tipo: "eleicao",
+    polemico: true,
+    citacao: {
+      texto:
+        "A Meta não apenas mentiu para o Relator, em suas petições anteriores, como abertamente descumpriu o principal comando da ordem judicial originária [...]",
+      autor: "Campanha de Lula, na ação ao TSE",
+      contexto: "Trecho reproduzido pelo g1 em 19/10/2026",
+    },
+    fontes: [
+      {
+        label: "g1 — campanha aciona TSE contra a Meta",
+        href: "https://g1.globo.com/politica/eleicoes/2026/noticia/2026/10/19/campanha-de-lula-volta-a-acionar-tse-e-diz-que-meta-continua-favorecendo-flavio-bolsonaro-nas-redes.ghtml",
+        tipo: "noticia",
+        veiculo: "g1",
+        data: "2026-10-19",
+      },
+    ],
   },
 
   /* -------------------------------- Dilma ------------------------------- */

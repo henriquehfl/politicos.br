@@ -23,7 +23,12 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { textoLimpo } from "@/lib/texto";
-import type { TimelineCategory, TimelineEvent, VotePosition } from "@/lib/types";
+import type {
+  FonteTipo,
+  TimelineCategory,
+  TimelineEvent,
+  VotePosition,
+} from "@/lib/types";
 import styles from "./timeline.module.css";
 
 interface CategoryMeta {
@@ -39,7 +44,7 @@ const CATEGORY_META: Record<TimelineCategory, CategoryMeta> = {
   eleicao: { icon: Trophy, label: "Eleições", color: "#e8c46a" },
   discurso: { icon: Mic, label: "Discursos", color: "#8fd6b4" },
   financas: { icon: Wallet, label: "Finanças", color: "#d8a1a1" },
-  auditoria: { icon: Scale, label: "Escândalos", color: "#e8837a" },
+  auditoria: { icon: Scale, label: "Justiça", color: "#e8837a" },
   presenca: { icon: CalendarCheck, label: "Presença", color: "#9ecf8f" },
   proposicao: { icon: FileText, label: "Proposições", color: "#9db4e0" },
   carreira: { icon: Briefcase, label: "Carreira", color: "#c9b18f" },
@@ -90,6 +95,25 @@ function dataCurta(date?: string): string | null {
   return `${dia}/${mes}/${ano}`;
 }
 
+function fonteTipoLabel(tipo?: FonteTipo): string {
+  switch (tipo) {
+    case "video":
+      return "Vídeo";
+    case "post":
+      return "Post";
+    case "noticia":
+      return "Notícia";
+    case "documento":
+      return "Documento";
+    case "oficial":
+      return "Oficial";
+    case "perfil":
+      return "Perfil";
+    default:
+      return "Fonte";
+  }
+}
+
 interface CentralTimelineProps {
   events: TimelineEvent[];
   showFilters?: boolean;
@@ -121,7 +145,42 @@ export function CentralTimeline({
     return mapa;
   }, [events]);
 
-  const closeModal = useCallback(() => setSelected(null), []);
+  const closeModal = useCallback(() => {
+    setSelected(null);
+    if (typeof window !== "undefined" && window.location.hash) {
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${window.location.search}`,
+      );
+    }
+  }, []);
+
+  const abrirEvento = useCallback((event: TimelineEvent) => {
+    setSelected(event);
+    if (typeof window !== "undefined") {
+      window.history.replaceState(null, "", `#${event.id}`);
+    }
+  }, []);
+
+  useEffect(() => {
+    const abrirPorHash = () => {
+      const hash = window.location.hash.slice(1);
+      if (!hash) return;
+      let id = hash;
+      try {
+        id = decodeURIComponent(hash);
+      } catch {
+        // hash inválido: mantém o texto original
+      }
+      const evento = events.find((item) => item.id === id);
+      if (evento) setSelected(evento);
+    };
+
+    abrirPorHash();
+    window.addEventListener("hashchange", abrirPorHash);
+    return () => window.removeEventListener("hashchange", abrirPorHash);
+  }, [events]);
 
   useEffect(() => {
     if (!selected) return;
@@ -185,7 +244,7 @@ export function CentralTimeline({
             >
               {isLeft ? (
                 <div className={styles.sideLeft}>
-                  <EventCard event={event} onSelect={setSelected} />
+                  <EventCard event={event} onSelect={abrirEvento} />
                 </div>
               ) : (
                 <div className={styles.sideLeft} aria-hidden />
@@ -203,7 +262,7 @@ export function CentralTimeline({
 
               {!isLeft ? (
                 <div className={styles.sideRight}>
-                  <EventCard event={event} onSelect={setSelected} />
+                  <EventCard event={event} onSelect={abrirEvento} />
                 </div>
               ) : (
                 <div className={styles.sideRight} aria-hidden />
@@ -212,6 +271,13 @@ export function CentralTimeline({
           );
         })}
       </ul>
+
+      <p className={styles.timelineNote}>
+        Dados de mandato, votações e pronunciamentos vêm das APIs oficiais da
+        Câmara e do Senado. Falas, vídeos e publicações de campanha passam por
+        curadoria manual: abra o evento para conferir a citação e a fonte
+        original.
+      </p>
 
       {selected && <EventModal event={selected} onClose={closeModal} />}
     </div>
@@ -232,6 +298,8 @@ function EventCard({
   const resumo =
     textoLimpo(event.summary) ??
     "Sem descrição disponível na fonte oficial.";
+  const totalFontes = event.sources?.length ?? 0;
+  const temVideo = event.sources?.some((fonte) => fonte.tipo === "video");
 
   return (
     <button
@@ -269,6 +337,17 @@ function EventCard({
           )}
           {event.discurso?.polemico && (
             <span className={styles.chip}>polêmico</span>
+          )}
+          {event.citacao?.texto && (
+            <span className={`${styles.chip} ${styles.chipFonte}`}>fala</span>
+          )}
+          {temVideo && (
+            <span className={`${styles.chip} ${styles.chipFonte}`}>vídeo</span>
+          )}
+          {totalFontes > 0 && (
+            <span className={`${styles.chip} ${styles.chipFonte}`}>
+              {totalFontes} {totalFontes === 1 ? "fonte" : "fontes"}
+            </span>
           )}
           {event.impact && (
             <span
@@ -342,6 +421,21 @@ function EventModal({
         </h2>
         <p className={styles.modalBody}>{corpo}</p>
 
+        {event.citacao?.texto && (
+          <figure className={styles.modalQuote}>
+            <blockquote>“{event.citacao.texto}”</blockquote>
+            <figcaption>
+              {event.citacao.autor && <cite>{event.citacao.autor}</cite>}
+              {event.citacao.contexto && (
+                <span>
+                  {event.citacao.autor ? " · " : ""}
+                  {event.citacao.contexto}
+                </span>
+              )}
+            </figcaption>
+          </figure>
+        )}
+
         {event.vote && (
           <p className={styles.modalBody}>
             Voto: <strong>{voteLabel(event.vote)}</strong>
@@ -409,12 +503,35 @@ function EventModal({
         )}
 
         {event.sources && event.sources.length > 0 && (
-          <div className={styles.modalLinks}>
-            {event.sources.map((s) => (
-              <a key={s.href} href={s.href} target="_blank" rel="noreferrer">
-                {s.label} ↗
-              </a>
-            ))}
+          <div className={styles.modalSources}>
+            <h3>Fontes e mídia</h3>
+            <ul>
+              {event.sources.map((fonte) => {
+                const meta = [fonte.veiculo, dataCurta(fonte.data)]
+                  .filter(Boolean)
+                  .join(" · ");
+                return (
+                  <li key={`${fonte.href}-${fonte.label}`}>
+                    <a
+                      href={fonte.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      title={`Abrir fonte: ${fonte.label}`}
+                    >
+                      <span className={styles.sourceBadge}>
+                        {fonteTipoLabel(fonte.tipo)}
+                      </span>
+                      <span className={styles.sourceLabel}>{fonte.label}</span>
+                      {meta && <span className={styles.sourceMeta}>{meta}</span>}
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
+            <p className={styles.modalSourceNote}>
+              Abre o conteúdo original em nova aba. Links de vídeo e post levam
+              à publicação, não a uma captura do site.
+            </p>
           </div>
         )}
       </div>

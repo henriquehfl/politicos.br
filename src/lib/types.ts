@@ -36,6 +36,31 @@ export interface SpeechInfo {
   polemico?: boolean;
 }
 
+/** Tipo de fonte exibido junto ao link na linha do tempo. */
+export type FonteTipo =
+  | "oficial"
+  | "documento"
+  | "noticia"
+  | "video"
+  | "post"
+  | "perfil";
+
+export interface FonteDados {
+  label: string;
+  href: string;
+  tipo?: FonteTipo;
+  veiculo?: string;
+  /** Data de publicação da fonte (AAAA-MM-DD). */
+  data?: string;
+}
+
+/** Trecho literal de fala ou publicação, sempre acompanhado de fonte. */
+export interface CitacaoEvento {
+  texto: string;
+  autor?: string;
+  contexto?: string;
+}
+
 export interface AttendanceInfo {
   ano?: number;
   sessoes: number;
@@ -55,16 +80,12 @@ export interface TimelineEvent {
   vote?: VotePosition;
   voteProposicao?: string;
   protagonists?: string[];
-  sources?: { label: string; href: string }[];
+  sources?: FonteDados[];
   detail?: string;
+  citacao?: CitacaoEvento;
   presenca?: AttendanceInfo;
   eleicao?: ElectionInfo;
   discurso?: SpeechInfo;
-}
-
-export interface FonteDados {
-  label: string;
-  href: string;
 }
 
 export interface Comissao {

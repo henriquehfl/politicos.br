@@ -8,6 +8,7 @@ Plataforma para explorar a política brasileira com **dados abertos oficiais**: 
 - **Listagens completas** em `/politicos` (Câmara + Senado), `/deputados` e `/senadores`, com filtros por Casa (na visão unificada) e situação, busca por nome, UF, partido ou cargo, fotos oficiais e carregamento incremental.
 - **Ranking transparente** com até 50 parlamentares, nota de 0 a 100 por pronunciamentos e comissões ativas, decomposição por critério e fórmula aberta em `/ranking`.
 - **Dossiês** com biografia, redes oficiais, atividade parlamentar, comissões, frentes, profissões, mandatos, CEAP, polêmicas e links para notícias e vídeos.
+- **Fatos com fonte rastreável**: cada evento curado pode trazer citação literal, tipo de fonte (vídeo, notícia, post ou documento), veículo, data e link direto compartilhável para o evento.
 - **Painel lateral** com foto, score de transparência e fontes, aberto automaticamente no desktop e recolhido no mobile.
 - **Linha do tempo do Brasil** com 47 marcos (1988–2026), datas, protagonistas e fontes.
 - Interface em **Next.js 16 + React 19**, CSS Modules e ícones [Lucide](https://lucide.dev/), com animações e suporte a `prefers-reduced-motion`.
@@ -24,7 +25,7 @@ Plataforma para explorar a política brasileira com **dados abertos oficiais**: 
 
 > O projeto consome apenas APIs públicas e não faz scraping. TikTok, Instagram e X não oferecem API pública por parlamentar, então esses botões abrem buscas públicas.
 
-> Fatos que não estão nas APIs do Congresso (prisões, condenações, cassações, declarações e publicações em redes sociais) ficam em `src/data/fatos-politicos.ts`, com data e fonte por item. Como o X/Twitter não tem API pública por parlamentar, essas publicações são curadas manualmente e não coletadas em tempo real.
+> Fatos que não estão nas APIs do Congresso (prisões, condenações, cassações, declarações e publicações em redes sociais) ficam em `src/data/fatos-politicos.ts`, com data e fonte por item. Como o X/Twitter não tem API pública por parlamentar, essas publicações são curadas manualmente e não coletadas em tempo real. A cobertura de campanha segue a mesma regra: é datada, revisada e sempre aponta para o vídeo, notícia ou publicação original — não é um feed ao vivo.
 
 ## Como rodar
 

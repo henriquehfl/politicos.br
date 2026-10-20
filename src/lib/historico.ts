@@ -60,6 +60,7 @@ function fatoParaEvento(fato: FatoPolitico, prefixo: string): TimelineEvent {
     impact: fato.impacto,
     detail: fato.detalhe,
     sources: fato.fontes,
+    citacao: fato.citacao,
     discurso: declaracao
       ? {
           tipo,
@@ -163,13 +164,20 @@ export function sanearEventos(eventos: TimelineEvent[]): TimelineEvent[] {
       voteProposicao: textoLimpo(evento.voteProposicao),
       sources: evento.sources
         ?.map((fonte) => ({
-          label: primeiroTexto(fonte.label, "Fonte"),
-          href: textoLimpo(fonte.href),
+          label: primeiroTexto(fonte.label, "Fonte") ?? "Fonte",
+          href: textoLimpo(fonte.href) ?? "",
+          tipo: fonte.tipo,
+          veiculo: textoLimpo(fonte.veiculo),
+          data: textoLimpo(fonte.data),
         }))
-        .filter(
-          (fonte): fonte is { label: string; href: string } =>
-            Boolean(fonte.label && fonte.href),
-        ),
+        .filter((fonte) => Boolean(fonte.label && fonte.href)),
+      citacao: evento.citacao
+        ? {
+            texto: textoLimpo(evento.citacao.texto, 600) ?? "",
+            autor: textoLimpo(evento.citacao.autor),
+            contexto: textoLimpo(evento.citacao.contexto, 400),
+          }
+        : undefined,
       discurso: evento.discurso
         ? {
             ...evento.discurso,

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Políticos.BR">
+  <rect width="64" height="64" rx="14" fill="#0a0a0a"/>
+  <g fill="none" stroke="#e0b07a" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M10 54h44"/>
+    <path d="M16 46V28"/>
+    <path d="M26 46V28"/>
+    <path d="M38 46V28"/>
+    <path d="M48 46V28"/>
+    <path d="M32 10 52 20H12z"/>
+  </g>
+</svg>
