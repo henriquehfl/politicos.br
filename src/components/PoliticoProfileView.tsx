@@ -95,7 +95,7 @@ export function PoliticoProfileView({ politico }: PoliticoProfileViewProps) {
               <p className={styles.subtitle}>
                 {politico.vigente ? "Em exercício" : "Histórico"} ·{" "}
                 {legislaturaLabel(politico.legislatura)}
-                {periodo ? ` (${periodo})` : ""} · mais recente primeiro
+                {periodo ? ` (${periodo})` : ""}
               </p>
             </div>
           </div>
@@ -105,7 +105,7 @@ export function PoliticoProfileView({ politico }: PoliticoProfileViewProps) {
               <li>
                 <Vote size={13} aria-hidden />
                 <strong>{atividade.votacoes.toLocaleString("pt-BR")}</strong>
-                <span>votos registrados</span>
+                <span>votos em plenário</span>
               </li>
               <li>
                 <Mic size={13} aria-hidden />

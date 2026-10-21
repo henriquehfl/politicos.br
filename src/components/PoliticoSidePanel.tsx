@@ -16,12 +16,12 @@ import {
   MapPin,
   Newspaper,
   Scale,
-  Star,
   Users,
   Video,
+  Vote,
   type LucideIcon,
 } from "lucide-react";
-import type { MediaKind, Politico } from "@/lib/types";
+import type { ElectionInfo, MediaKind, Politico } from "@/lib/types";
 import { newsSearchUrl } from "@/lib/media";
 import styles from "./side-panel.module.css";
 
@@ -51,6 +51,13 @@ function formatarData(iso?: string): string | null {
 
 function numero(valor?: number): string {
   return (valor ?? 0).toLocaleString("pt-BR");
+}
+
+function rotuloResultado(resultado: ElectionInfo["resultado"]): string {
+  if (resultado === "eleito") return "Eleito";
+  if (resultado === "suplente") return "Suplente";
+  if (resultado === "nao_eleito") return "Não eleito";
+  return "Candidato";
 }
 
 /** "48" ou "57ª" -> "48ª legislatura" */
@@ -163,37 +170,102 @@ export function PoliticoSidePanel({
           </div>
         </header>
 
-        <section className={styles.block}>
-          <h3>
-            <Star size={12} aria-hidden /> Transparência
-          </h3>
-          {politico.transparencia.score !== null ? (
-            <>
-              <p className={styles.score}>
-                {politico.transparencia.score}
-                <span>/100</span>
-              </p>
-              <p className={styles.muted}>{politico.transparencia.label}</p>
-              <div className={styles.barra} aria-hidden>
-                <span
-                  style={{
-                    width: `${Math.min(100, politico.transparencia.score)}%`,
-                  }}
-                />
-              </div>
-            </>
-          ) : (
-            <>
-              <p className={styles.score}>—</p>
-              <p className={styles.muted}>{politico.transparencia.label}</p>
-              <p className={styles.nota}>
-                {politico.cargo === "senador"
-                  ? "O Senado Federal não disponibiliza despesas de cota parlamentar (CEAP) nesta base; por isso não há índice de notas fiscais."
-                  : "O índice só é calculado quando há despesas de CEAP na legislatura analisada; mandatos encerrados podem não ter registros nessa base."}
-              </p>
-            </>
-          )}
-        </section>
+        {politico.eleicao && (
+          <section className={styles.block}>
+            <h3>
+              <Vote size={12} aria-hidden /> Eleições {politico.eleicao.ano}
+            </h3>
+            {politico.eleicao.disponivel ? (
+              politico.eleicao.resultado ? (
+                <>
+                  <p className={styles.eleicaoVotos}>
+                    {politico.eleicao.resultado.votos !== undefined
+                      ? numero(politico.eleicao.resultado.votos)
+                      : "—"}
+                    <span> votos</span>
+                  </p>
+                  <p className={styles.eleicaoResultado}>
+                    <strong
+                      data-resultado={politico.eleicao.resultado.resultado}
+                    >
+                      {politico.eleicao.resultado.situacao ??
+                        rotuloResultado(politico.eleicao.resultado.resultado)}
+                    </strong>
+                    {politico.eleicao.resultado.percentual !== undefined && (
+                      <>
+                        {" "}
+                        ·{" "}
+                        {politico.eleicao.resultado.percentual.toLocaleString(
+                          "pt-BR",
+                          {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          },
+                        )}
+                        % dos válidos
+                      </>
+                    )}
+                  </p>
+                  <p className={styles.muted}>
+                    {politico.eleicao.resultado.cargo}
+                    {politico.eleicao.resultado.partido
+                      ? ` · ${politico.eleicao.resultado.partido}`
+                      : ""}
+                    {politico.eleicao.resultado.coligacao
+                      ? ` · ${politico.eleicao.resultado.coligacao}`
+                      : ""}
+                    {politico.eleicao.resultado.turno
+                      ? ` · ${politico.eleicao.resultado.turno}º turno`
+                      : ""}
+                  </p>
+                  <a
+                    className={styles.linkFonte}
+                    href={
+                      politico.eleicao.resultado.fonte?.href ??
+                      politico.eleicao.consulta.href
+                    }
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Resultado oficial no TSE ↗
+                  </a>
+                </>
+              ) : (
+                <>
+                  <p className={styles.muted}>
+                    Sem candidatura registrada nesta eleição.
+                  </p>
+                  <a
+                    className={styles.linkFonte}
+                    href={politico.eleicao.consulta.href}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Consultar resultados no TSE ↗
+                  </a>
+                </>
+              )
+            ) : (
+              <>
+                <p className={styles.muted}>
+                  Não foi possível consultar o TSE agora.
+                </p>
+                <a
+                  className={styles.linkFonte}
+                  href={politico.eleicao.consulta.href}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Consultar resultados no TSE ↗
+                </a>
+              </>
+            )}
+            <p className={styles.nota}>
+              Dados oficiais do TSE. A plataforma não classifica nem emite juízo
+              de valor.
+            </p>
+          </section>
+        )}
 
         {cargos.length > 0 && (
           <section className={styles.block}>

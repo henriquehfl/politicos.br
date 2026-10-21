@@ -1,4 +1,4 @@
-import { History, Trophy, Users, Vote, type LucideIcon } from "lucide-react";
+import { Activity, History, Users, Vote, type LucideIcon } from "lucide-react";
 
 export interface NavItem {
   href: string;
@@ -22,7 +22,7 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Users,
     match: ["/deputados", "/senadores"],
   },
-  { href: "/ranking", label: "Ranking", icon: Trophy },
+  { href: "/apuracao", label: "Apuração", icon: Activity },
   { href: "/votacoes", label: "Votações", icon: Vote },
 ];
 

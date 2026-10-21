@@ -1,5 +1,6 @@
 import { cacheLife } from "next/cache";
 import { CAMARA, fetchJson } from "./http";
+import { getEleicaoPolitico } from "./tse";
 import { buildCargoEvents, getCargosPublicos } from "@/lib/cargos";
 import {
   contarPolemicas,
@@ -425,64 +426,6 @@ export async function getDeputadoOrgaos(
 }
 
 /**
- * Colegiados ainda ativos no mandato atual (comissões, CPIs, conselhos).
- * Usado pelo ranking; a linha do tempo continua usando `getDeputadoOrgaos`.
- */
-export async function getDeputadoComissoesAtivas(
-  id: string,
-  legislatura: number,
-): Promise<Comissao[]> {
-  const data = await fetchJson<{ dados: CamaraOrgaoMembro[] }>(
-    `${CAMARA}/deputados/${id}/orgaos?idLegislatura=${legislatura}&itens=100`,
-  );
-  return (data?.dados ?? [])
-    .filter((r) => !r.dataFim)
-    .map((r) => ({
-      sigla: (r.siglaOrgao ?? r.sigla ?? "—").toUpperCase(),
-      titularidade:
-        (r.titulo ?? "").toLowerCase().includes("suplente")
-          ? ("Suplente" as const)
-          : ("Titular" as const),
-      nome: r.nomeOrgao ?? r.nome ?? "",
-    }))
-    .filter((c) => c.nome);
-}
-
-/**
- * Conta os pronunciamentos da legislatura atual sem baixar todas as páginas.
- * A API informa a última página em `links`; basta buscar a primeira e a última
- * para obter o total exato.
- */
-export async function contarDiscursosDeputado(
-  id: string,
-  legislatura: number,
-): Promise<number> {
-  const base = `${CAMARA}/deputados/${id}/discursos?idLegislatura=${legislatura}&itens=100&ordem=DESC&ordenarPor=dataHoraInicio`;
-  const primeira = await fetchJson<{
-    dados: CamaraDiscurso[];
-    links?: Array<{ rel: string; href: string }>;
-  }>(`${base}&pagina=1`, { timeoutMs: 20000 });
-  if (!primeira?.dados?.length) return 0;
-
-  const ultima =
-    Number(
-      primeira.links
-        ?.find((l) => l.rel === "last")
-        ?.href.match(/[?&]pagina=(\d+)/)?.[1] ?? 1,
-    ) || 1;
-  if (ultima <= 1) return primeira.dados.length;
-
-  const ultimaPagina = await fetchJson<{ dados: CamaraDiscurso[] }>(
-    `${base}&pagina=${ultima}`,
-    { timeoutMs: 20000 },
-  );
-
-  return (
-    (ultima - 1) * primeira.dados.length + (ultimaPagina?.dados?.length ?? 0)
-  );
-}
-
-/**
  * Votações nominais do plenário em que o deputado registrou voto.
  *
  * A API da Câmara recusa intervalos maiores que 3 meses em `/votacoes`
@@ -737,20 +680,18 @@ export function buildDeputadoEvents(input: {
   // Finanças: agrupa despesas por ano e por tipo (top gastos)
   const porAno = new Map<
     number,
-    { total: number; porTipo: Map<string, number>; comNF: number }
+    { total: number; porTipo: Map<string, number> }
   >();
   for (const d of input.despesas) {
     const entry = porAno.get(d.ano) ?? {
       total: 0,
       porTipo: new Map(),
-      comNF: 0,
     };
     entry.total += d.valorLiquido ?? 0;
     entry.porTipo.set(
       d.tipoDespesa,
       (entry.porTipo.get(d.tipoDespesa) ?? 0) + (d.valorLiquido ?? 0),
     );
-    if (d.urlDocumento) entry.comNF += 1;
     porAno.set(d.ano, entry);
   }
 
@@ -817,6 +758,13 @@ export async function buildDeputado(id: string): Promise<Politico | null> {
 
   const votacoes = votacaoInfo.votos;
   const nome = s?.nome ?? detalhe.dados.nomeCivil ?? "Deputado";
+  const eleicao2026Promise = getEleicaoPolitico({
+    nome,
+    nomeCivil: detalhe.dados.nomeCivil,
+    nascimento: detalhe.dados.dataNascimento,
+    uf: s?.siglaUf ?? "",
+    cargo: "deputado",
+  });
   const naturalidade =
     [detalhe.dados.municipioNascimento, detalhe.dados.ufNascimento]
       .filter(Boolean)
@@ -884,10 +832,7 @@ export async function buildDeputado(id: string): Promise<Politico | null> {
       : null;
 
   const ceap = sumExpenses(despesas);
-  const comNF = despesas.filter((d) => d.urlDocumento).length;
-  const scoreNF = despesas.length
-    ? Math.round((comNF / despesas.length) * 100)
-    : null;
+  const eleicao2026 = await eleicao2026Promise;
 
   return {
     id,
@@ -902,17 +847,7 @@ export async function buildDeputado(id: string): Promise<Politico | null> {
     sexo: detalhe.dados.sexo ?? "—",
     escolaridade: detalhe.dados.escolaridade ?? "—",
     condicao: s?.condicaoEleitoral ?? "Titular",
-    transparencia: {
-      score: scoreNF,
-      label:
-        scoreNF === null
-          ? "Sem dados de CEAP no período"
-          : scoreNF >= 80
-            ? "Boa transparência"
-            : scoreNF >= 50
-              ? "Transparência moderada"
-              : "Transparência baixa",
-    },
+    eleicao: eleicao2026,
     gabinete: {
       predio: s?.gabinete?.predio ?? "—",
       sala: s?.gabinete?.sala ?? "—",

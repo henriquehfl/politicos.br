@@ -67,29 +67,6 @@
   min-width: 0;
 }
 
-.status {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.28rem 0.55rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: 999px;
-  font-family: var(--font-mono), monospace;
-  font-size: 0.55rem;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--muted);
-  white-space: nowrap;
-}
-
-.statusDot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
-}
-
 .link {
   position: relative;
   display: inline-flex;
@@ -136,10 +113,6 @@
 }
 
 @media (max-width: 1020px) {
-  .status {
-    display: none;
-  }
-
   .navArea {
     gap: 0.5rem;
   }

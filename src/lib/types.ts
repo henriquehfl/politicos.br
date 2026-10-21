@@ -26,6 +26,21 @@ export interface ElectionInfo {
   partido?: string;
   coligacao?: string;
   totalVotosValidos?: number;
+  /** Situação oficial publicada pelo TSE (ex.: "Eleito por QP", "Suplente"). */
+  situacao?: string;
+  /** Link para o resultado oficial que sustenta os números. */
+  fonte?: FonteDados;
+}
+
+/**
+ * Consulta eleitoral de um perfil. `disponivel` separa falha de API de
+ * ausência real de candidatura.
+ */
+export interface EleicaoPolitico {
+  ano: number;
+  disponivel: boolean;
+  resultado: ElectionInfo | null;
+  consulta: FonteDados;
 }
 
 export interface SpeechInfo {
@@ -183,8 +198,8 @@ export interface Politico extends PoliticoSummary {
   sexo: string;
   escolaridade: string;
   condicao: string;
-  /** Score calculado apenas quando há despesas de CEAP; null = sem base de cálculo. */
-  transparencia: { score: number | null; label: string };
+  /** Resultado oficial da eleição geral de 2026, quando consultável. */
+  eleicao?: EleicaoPolitico;
   gabinete: {
     predio: string;
     sala: string;

@@ -1,5 +1,6 @@
 import { cacheLife } from "next/cache";
 import { SENADO, fetchJson } from "./http";
+import { getEleicaoPolitico } from "./tse";
 import { buildCargoEvents, getCargosPublicos } from "@/lib/cargos";
 import {
   contarPolemicas,
@@ -838,6 +839,13 @@ export async function buildSenador(id: string): Promise<Politico | null> {
   ]);
 
   const nome = basico.NomeParlamentar ?? "Senador";
+  const eleicao2026Promise = getEleicaoPolitico({
+    nome,
+    nomeCivil: basico.NomeCompletoParlamentar,
+    nascimento: basico.DadosBasicosParlamentar?.DataNascimento,
+    uf: basico.UfParlamentar ?? "",
+    cargo: "senador",
+  });
   const cargosPublicos = getCargosPublicos(
     nome,
     basico.DadosBasicosParlamentar?.DataNascimento,
@@ -916,6 +924,7 @@ export async function buildSenador(id: string): Promise<Politico | null> {
       : "Titular";
   const endereco = basico.DadosBasicosParlamentar?.EnderecoParlamentar ?? "";
   const sala = endereco.match(/gabinete\s*\d+/i)?.[0] ?? "—";
+  const eleicao2026 = await eleicao2026Promise;
 
   return {
     id,
@@ -930,10 +939,7 @@ export async function buildSenador(id: string): Promise<Politico | null> {
     sexo: basico.SexoParlamentar ?? "—",
     escolaridade: "—",
     condicao,
-    transparencia: {
-      score: null,
-      label: "Sem dados de CEAP no Senado",
-    },
+    eleicao: eleicao2026,
     gabinete: {
       predio: "Senado Federal",
       sala: sala === "—" ? "—" : sala.replace(/gabinete/i, "Gabinete "),

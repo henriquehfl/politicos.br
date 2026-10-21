@@ -237,15 +237,41 @@
   color: var(--accent-muted);
 }
 
-.score {
+.eleicaoVotos {
   font-family: var(--font-mono), monospace;
-  font-size: 2rem;
+  font-size: 1.6rem;
   line-height: 1;
 }
 
-.score span {
-  font-size: 1rem;
+.eleicaoVotos span {
+  font-size: 0.62rem;
   color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.eleicaoResultado {
+  margin-top: 0.4rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.eleicaoResultado strong {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.eleicaoResultado strong[data-resultado="eleito"] {
+  color: #6ee7a0;
+}
+
+.eleicaoResultado strong[data-resultado="suplente"] {
+  color: #e8c46a;
+}
+
+.eleicaoResultado strong[data-resultado="nao_eleito"] {
+  color: #e08a8a;
 }
 
 .muted {
@@ -300,22 +326,6 @@
   font-size: 0.8rem;
 }
 
-
-.barra {
-  margin-top: 0.5rem;
-  height: 3px;
-  border-radius: 999px;
-  background: var(--border-subtle);
-  overflow: hidden;
-}
-
-.barra span {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--accent-muted), var(--accent));
-  transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1);
-}
 
 .numeros {
   list-style: none;
