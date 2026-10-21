@@ -144,6 +144,28 @@
   font-size: 0.6rem;
 }
 
+.skeletonChip {
+  width: 7.25rem;
+  height: 2rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: linear-gradient(
+    100deg,
+    var(--surface-elevated) 20%,
+    var(--surface-hover) 45%,
+    var(--surface-elevated) 70%
+  );
+  background-size: 220% 100%;
+  animation: profileSkeleton 1.5s ease-in-out infinite;
+}
+
+.dossieErro {
+  padding: 2.5rem 1rem;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
 @keyframes heroIn {
   from {
     opacity: 0;
@@ -155,8 +177,21 @@
   }
 }
 
+@keyframes profileSkeleton {
+  0% {
+    background-position: 180% 0;
+  }
+  100% {
+    background-position: -80% 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .hero {
+    animation: none;
+  }
+
+  .skeletonChip {
     animation: none;
   }
 }

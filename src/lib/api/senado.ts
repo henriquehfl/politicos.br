@@ -241,7 +241,7 @@ export async function getSenadorResumo(
   id: string,
 ): Promise<{ nome: string; partido: string; uf: string; nascimento?: string } | null> {
   "use cache";
-  cacheLife("hours");
+  cacheLife({ stale: 300, revalidate: 600, expire: 86400 });
 
   const basico = await getSenadorDetalhe(id);
   if (!basico) return null;
@@ -802,15 +802,111 @@ export function buildSenadorEvents(input: {
   return events;
 }
 
-export async function buildSenador(id: string): Promise<Politico | null> {
+/**
+ * Ficha enxuta do senador: detalhe + mandatos, sem discursos, votações,
+ * autorias e demais consultas pesadas. Permite liberar o HTML inicial e
+ * carregar o dossiê completo em segundo plano.
+ */
+function montarSenadorBase(
+  id: string,
+  basico: SenadorBasico,
+  mandatos: Awaited<ReturnType<typeof getSenadorMandatos>>,
+): Politico {
+  const nome = basico.NomeParlamentar ?? "Senador";
+  const cargosPublicos = getCargosPublicos(
+    nome,
+    basico.DadosBasicosParlamentar?.DataNascimento,
+  );
+  const cargoAtual = cargosPublicos.find((cargo) => cargo.atual) ?? null;
+  const naturalidade =
+    [
+      basico.DadosBasicosParlamentar?.Naturalidade,
+      basico.DadosBasicosParlamentar?.UfNaturalidade,
+    ]
+      .filter(Boolean)
+      .join(" / ") || undefined;
+  const midia = buildMediaLinks({
+    nome,
+    cargo: "senador",
+    id,
+    site: basico.UrlPaginaParlamentar,
+  });
+
+  const telefones = asArray(basico.Telefones?.Telefone ?? [])
+    .map((t) => t.NumeroTelefone)
+    .filter((t): t is string => Boolean(t))
+    .join(", ");
+
+  const mandatoAtual = mandatos[0];
+  const legislatura = mandatoAtual?.PrimeiraLegislaturaDoMandato?.NumeroLegislatura
+    ? `${mandatoAtual.PrimeiraLegislaturaDoMandato.NumeroLegislatura}ª`
+    : "—";
+  const condicao =
+    (mandatoAtual?.DescricaoParticipacao ?? "").toLowerCase().includes("supl")
+      ? "Suplente"
+      : "Titular";
+  const endereco = basico.DadosBasicosParlamentar?.EnderecoParlamentar ?? "";
+  const sala = endereco.match(/gabinete\s*\d+/i)?.[0] ?? "—";
+
+  return {
+    id,
+    nome,
+    nomeBusca: `${basico.NomeParlamentar ?? ""} ${basico.SiglaPartidoParlamentar ?? ""} ${basico.UfParlamentar ?? ""}`.toLowerCase(),
+    cargo: "senador",
+    vigente: true,
+    uf: basico.UfParlamentar ?? "—",
+    partido: basico.SiglaPartidoParlamentar ?? "—",
+    fotoUrl: basico.UrlFotoParlamentar,
+    legislatura,
+    sexo: basico.SexoParlamentar ?? "—",
+    escolaridade: "—",
+    condicao,
+    gabinete: {
+      predio: "Senado Federal",
+      sala: sala === "—" ? "—" : sala.replace(/gabinete/i, "Gabinete "),
+      telefone: telefones || "—",
+      email: basico.EmailParlamentar ?? "—",
+    },
+    comissoes: [],
+    cargos: cargosPublicos,
+    situacaoAtual: cargoAtual,
+    events: [],
+    bio: {
+      nomeCivil: basico.NomeCompletoParlamentar,
+      nascimento: basico.DadosBasicosParlamentar?.DataNascimento,
+      idade: calcularIdade(basico.DadosBasicosParlamentar?.DataNascimento),
+      naturalidade,
+    },
+    frentes: [],
+    midia,
+    polemicas: 0,
+  };
+}
+
+/** Dados mínimos do senador, cacheados separadamente do dossiê completo. */
+export async function buildSenadorBase(id: string): Promise<Politico | null> {
   "use cache";
-  cacheLife("hours");
+  cacheLife({ stale: 300, revalidate: 600, expire: 86400 });
 
   const [basico, mandatos] = await Promise.all([
     getSenadorDetalhe(id),
     getSenadorMandatos(id),
   ]);
   if (!basico) return null;
+  return montarSenadorBase(id, basico, mandatos);
+}
+
+export async function buildSenador(id: string): Promise<Politico | null> {
+  "use cache";
+  // Alinhado ao AutoRefresh do perfil (15 min) e ao cache de 10 min das APIs.
+  cacheLife({ stale: 300, revalidate: 600, expire: 86400 });
+
+  const [basico, mandatos] = await Promise.all([
+    getSenadorDetalhe(id),
+    getSenadorMandatos(id),
+  ]);
+  if (!basico) return null;
+  const base = montarSenadorBase(id, basico, mandatos);
 
   // Discursos desde o primeiro mandato (não só a legislatura atual).
   const anosMandato = mandatos
@@ -838,26 +934,14 @@ export async function buildSenador(id: string): Promise<Politico | null> {
     getSenadorRelatorias(id),
   ]);
 
-  const nome = basico.NomeParlamentar ?? "Senador";
   const eleicao2026Promise = getEleicaoPolitico({
-    nome,
+    nome: base.nome,
     nomeCivil: basico.NomeCompletoParlamentar,
     nascimento: basico.DadosBasicosParlamentar?.DataNascimento,
-    uf: basico.UfParlamentar ?? "",
+    uf: base.uf,
     cargo: "senador",
   });
-  const cargosPublicos = getCargosPublicos(
-    nome,
-    basico.DadosBasicosParlamentar?.DataNascimento,
-  );
-  const cargoAtual = cargosPublicos.find((cargo) => cargo.atual) ?? null;
-  const naturalidade =
-    [
-      basico.DadosBasicosParlamentar?.Naturalidade,
-      basico.DadosBasicosParlamentar?.UfNaturalidade,
-    ]
-      .filter(Boolean)
-      .join(" / ") || undefined;
+  const cargosPublicos = base.cargos ?? [];
 
   const eventosBase = buildSenadorEvents({
     senadorId: id,
@@ -871,7 +955,7 @@ export async function buildSenador(id: string): Promise<Politico | null> {
     liderancas,
     bio: {
       nascimento: basico.DadosBasicosParlamentar?.DataNascimento,
-      naturalidade,
+      naturalidade: base.bio?.naturalidade,
       nomeCivil: basico.NomeCompletoParlamentar,
     },
   });
@@ -881,19 +965,12 @@ export async function buildSenador(id: string): Promise<Politico | null> {
       eventosBase,
       buildCargoEvents(cargosPublicos, id),
       getEventosHistoricos(
-        nome,
+        base.nome,
         basico.DadosBasicosParlamentar?.DataNascimento,
         id,
       ),
     ),
   );
-
-  const midia = buildMediaLinks({
-    nome,
-    cargo: "senador",
-    id,
-    site: basico.UrlPaginaParlamentar,
-  });
 
   const frentes = [
     ...new Set(
@@ -908,61 +985,19 @@ export async function buildSenador(id: string): Promise<Politico | null> {
 
   const polemicas = contarPolemicas(events);
   const totalVotacoes = votacoes.length;
-
-  const telefones = asArray(basico.Telefones?.Telefone ?? [])
-    .map((t) => t.NumeroTelefone)
-    .filter((t): t is string => Boolean(t))
-    .join(", ");
-
-  const mandatoAtual = mandatos[0];
-  const legislatura = mandatoAtual?.PrimeiraLegislaturaDoMandato?.NumeroLegislatura
-    ? `${mandatoAtual.PrimeiraLegislaturaDoMandato.NumeroLegislatura}ª`
-    : "—";
-  const condicao =
-    (mandatoAtual?.DescricaoParticipacao ?? "").toLowerCase().includes("supl")
-      ? "Suplente"
-      : "Titular";
-  const endereco = basico.DadosBasicosParlamentar?.EnderecoParlamentar ?? "";
-  const sala = endereco.match(/gabinete\s*\d+/i)?.[0] ?? "—";
   const eleicao2026 = await eleicao2026Promise;
 
   return {
-    id,
-    nome,
-    nomeBusca: `${basico.NomeParlamentar ?? ""} ${basico.SiglaPartidoParlamentar ?? ""} ${basico.UfParlamentar ?? ""}`.toLowerCase(),
-    cargo: "senador",
-    vigente: true,
-    uf: basico.UfParlamentar ?? "—",
-    partido: basico.SiglaPartidoParlamentar ?? "—",
-    fotoUrl: basico.UrlFotoParlamentar,
-    legislatura,
-    sexo: basico.SexoParlamentar ?? "—",
-    escolaridade: "—",
-    condicao,
-    eleicao: eleicao2026,
-    gabinete: {
-      predio: "Senado Federal",
-      sala: sala === "—" ? "—" : sala.replace(/gabinete/i, "Gabinete "),
-      telefone: telefones || "—",
-      email: basico.EmailParlamentar ?? "—",
-    },
+    ...base,
     comissoes,
     stats: {
       presencaMedia: null,
       diasTrabalhados: totalVotacoes,
       ceapTotal: null,
     },
-    cargos: cargosPublicos,
-    situacaoAtual: cargoAtual,
+    eleicao: eleicao2026,
     events,
-    bio: {
-      nomeCivil: basico.NomeCompletoParlamentar,
-      nascimento: basico.DadosBasicosParlamentar?.DataNascimento,
-      idade: calcularIdade(basico.DadosBasicosParlamentar?.DataNascimento),
-      naturalidade,
-    },
     frentes: frentes.slice(0, 24),
-    midia,
     polemicas,
     atividade: {
       votacoes: totalVotacoes,

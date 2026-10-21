@@ -1,7 +1,9 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { connection } from "next/server";
+import { AutoRefresh } from "@/components/AutoRefresh";
 import { CAMARA, fetchJson } from "@/lib/api/http";
+import { REFRESH_VOTACOES_MS } from "@/lib/atualizacao";
 import styles from "../listagem.module.css";
 
 export const metadata: Metadata = {
@@ -29,6 +31,8 @@ async function getVotacoes(): Promise<Votacao[]> {
   const iso = (d: Date) => d.toISOString().slice(0, 10);
   const data = await fetchJson<{ dados: Votacao[] }>(
     `${CAMARA}/votacoes?dataInicio=${iso(ini)}&dataFim=${iso(fim)}&idOrgao=180&itens=80&ordem=DESC&ordenarPor=id`,
+    // O painel atualiza a cada 5 min; o cache do servidor acompanha.
+    { ttl: 2 * 60_000, revalidate: 300 },
   );
   return data?.dados ?? [];
 }
@@ -58,6 +62,7 @@ async function VotacoesList() {
     <>
       <p className={styles.subtitle}>
         {votacoes.length} votações nos últimos 89 dias — Câmara dos Deputados.
+        Atualização automática a cada 5 minutos.
       </p>
       <ul className={styles.grid}>
         {votacoes.map((v) => (
@@ -83,6 +88,7 @@ async function VotacoesList() {
 export default function VotacoesPage() {
   return (
     <main className={styles.wrap}>
+      <AutoRefresh intervalMs={REFRESH_VOTACOES_MS} />
       <h1 className={styles.title}>Votações recentes do Plenário</h1>
       <Suspense
         fallback={

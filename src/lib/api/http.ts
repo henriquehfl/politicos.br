@@ -14,6 +14,8 @@ interface FetchOpts {
   ttl?: number;
   timeoutMs?: number;
   accept?: string;
+  /** Revalidação do cache de dados do Next, em segundos. */
+  revalidate?: number;
 }
 
 async function requestJson<T>(url: string, opts: FetchOpts): Promise<T | null> {
@@ -30,7 +32,7 @@ async function requestJson<T>(url: string, opts: FetchOpts): Promise<T | null> {
           "User-Agent": "POLITICOS.BR/1.0 (+dados abertos)",
         },
         // Participa do cache de dados do Next quando aplicável.
-        next: { revalidate: 600 },
+        next: { revalidate: opts.revalidate ?? 600 },
       });
       if (!res.ok) {
         // 429/5xx são transitórios: uma segunda tentativa evita cachear uma
@@ -85,7 +87,7 @@ export async function fetchText(
   url: string,
   opts: FetchOpts = {},
 ): Promise<string | null> {
-  const { ttl = DEFAULT_TTL, timeoutMs = 8000 } = opts;
+  const { ttl = DEFAULT_TTL, timeoutMs = 8000, revalidate = 600 } = opts;
   const cached = memory.get(url);
   if (cached && Date.now() - cached.at < ttl) return cached.data as string;
 
@@ -95,7 +97,7 @@ export async function fetchText(
     const res = await fetch(url, {
       signal: controller.signal,
       headers: { "User-Agent": "POLITICOS.BR/1.0" },
-      next: { revalidate: 600 },
+      next: { revalidate },
     });
     if (!res.ok) return null;
     const text = await res.text();

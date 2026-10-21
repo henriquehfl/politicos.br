@@ -16,6 +16,7 @@ interface CacheSalvo {
 
 let memoria: PoliticoSummary[] | null = null;
 let promessa: Promise<PoliticoSummary[]> | null = null;
+let geracao = 0;
 
 function lerCache(): PoliticoSummary[] | null {
   if (typeof window === "undefined") return null;
@@ -57,22 +58,45 @@ export function loadPoliticosIndex(): Promise<PoliticoSummary[]> {
     return Promise.resolve(cache);
   }
 
+  const geracaoAtual = geracao;
   promessa = fetch("/api/politicos")
     .then(async (res) => {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as {
         items: CompactPolitico[];
       };
-      gravarCache(data.items);
-      memoria = decodeIndex(data.items);
-      return memoria;
+      const decodificado = decodeIndex(data.items);
+      if (geracaoAtual === geracao) {
+        gravarCache(data.items);
+        memoria = decodificado;
+      }
+      return decodificado;
     })
     .catch(() => {
-      promessa = null; // permite nova tentativa em uma próxima interação
+      // Uma geração mais nova pode ter assumido enquanto esta falhava.
+      if (geracaoAtual === geracao) promessa = null;
       return [];
     });
 
   return promessa;
+}
+
+/**
+ * Descarta o índice local e baixa novamente. Usado pelo diretório para
+ * acompanhar mudanças de composição sem exigir recarregar a página.
+ */
+export function refreshPoliticosIndex(): Promise<PoliticoSummary[]> {
+  geracao += 1;
+  memoria = null;
+  promessa = null;
+  if (typeof window !== "undefined") {
+    try {
+      window.sessionStorage.removeItem(CHAVE);
+    } catch {
+      // sessionStorage bloqueado: segue com a nova requisição.
+    }
+  }
+  return loadPoliticosIndex();
 }
 
 /** Pré-carrega sem bloquear a primeira pintura. */

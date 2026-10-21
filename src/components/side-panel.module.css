@@ -429,6 +429,159 @@
   color: var(--muted);
 }
 
+.newsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.newsHeader h3 {
+  margin-bottom: 0;
+}
+
+.newsRefresh {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface-elevated);
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.newsRefresh:hover:not(:disabled) {
+  color: var(--foreground);
+  border-color: var(--accent-muted);
+  background: var(--surface-hover);
+}
+
+.newsRefresh:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.newsRefresh:disabled svg {
+  animation: girar 0.9s linear infinite;
+}
+
+.noticias {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.noticias a {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.45rem 0.5rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--surface-elevated);
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.noticias a:hover {
+  border-color: var(--accent-muted);
+  background: var(--surface-hover);
+}
+
+.noticiaTitulo {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--foreground);
+}
+
+.noticiaMeta {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.56rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.noticiaMeta svg {
+  flex-shrink: 0;
+}
+
+.newsRodape {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  margin-top: 0.55rem;
+}
+
+.newsRodape .nota {
+  margin-top: 0;
+}
+
+@keyframes girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.dossieSkeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  margin-bottom: 1.25rem;
+}
+
+.skeletonBlock {
+  height: 4.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: linear-gradient(
+    100deg,
+    var(--surface-elevated) 20%,
+    var(--surface-hover) 45%,
+    var(--surface-elevated) 70%
+  );
+  background-size: 220% 100%;
+  animation: skeletonShimmer 1.5s ease-in-out infinite;
+}
+
+.skeletonNote {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-align: center;
+}
+
+@keyframes skeletonShimmer {
+  0% {
+    background-position: 180% 0;
+  }
+  100% {
+    background-position: -80% 0;
+  }
+}
+
 @keyframes blockIn {
   from {
     opacity: 0;
@@ -451,7 +604,9 @@
 
 @media (prefers-reduced-motion: reduce) {
   .block,
-  .foto {
+  .foto,
+  .skeletonBlock,
+  .newsRefresh:disabled svg {
     animation: none;
   }
 }

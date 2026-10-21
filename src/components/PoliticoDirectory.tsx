@@ -1,11 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, LoaderCircle, Search, X } from "lucide-react";
+import { REFRESH_INDICE_MS } from "@/lib/atualizacao";
 import { getCargoAtualPorNome } from "@/lib/cargos";
 import { fotoOficial } from "@/lib/imagem";
-import { loadPoliticosIndex } from "@/lib/politicos-client";
+import {
+  loadPoliticosIndex,
+  refreshPoliticosIndex,
+} from "@/lib/politicos-client";
 import { searchPoliticos } from "@/lib/search-index";
 import type { PoliticoSummary } from "@/lib/types";
 import { FotoPolitico } from "./FotoPolitico";
@@ -58,6 +62,7 @@ export function PoliticoDirectory({
     chave: "",
     n: PAGINA,
   });
+  const ultimaAtualizacao = useRef(0);
 
   useEffect(() => {
     let vivo = true;
@@ -68,6 +73,40 @@ export function PoliticoDirectory({
     });
     return () => {
       vivo = false;
+    };
+  }, []);
+
+  // A composição do Congresso muda pouco, mas o índice local expira em 1h.
+  // Revalidamos em segundo plano para não exigir recarregar a listagem.
+  useEffect(() => {
+    let vivo = true;
+    ultimaAtualizacao.current = Date.now();
+
+    const atualizarIndice = () => {
+      if (document.visibilityState !== "visible") return;
+      ultimaAtualizacao.current = Date.now();
+      void refreshPoliticosIndex().then((todos) => {
+        if (!vivo || !todos.length) return;
+        setItems(todos);
+        setErro(false);
+      });
+    };
+
+    const intervalo = window.setInterval(atualizarIndice, REFRESH_INDICE_MS);
+    const aoVoltarParaAba = () => {
+      if (
+        document.visibilityState === "visible" &&
+        Date.now() - ultimaAtualizacao.current >= REFRESH_INDICE_MS
+      ) {
+        atualizarIndice();
+      }
+    };
+
+    document.addEventListener("visibilitychange", aoVoltarParaAba);
+    return () => {
+      vivo = false;
+      window.clearInterval(intervalo);
+      document.removeEventListener("visibilitychange", aoVoltarParaAba);
     };
   }, []);
 

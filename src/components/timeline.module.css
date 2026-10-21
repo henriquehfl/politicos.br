@@ -358,6 +358,103 @@
   border-radius: 8px;
 }
 
+.skeletonNote {
+  margin: 1rem 0 1.4rem;
+  text-align: center;
+  color: var(--muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.skeletonList {
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+}
+
+.skeletonRow {
+  display: grid;
+  grid-template-columns: 1fr var(--center-col) 1fr;
+  align-items: start;
+  gap: 0;
+}
+
+.skeletonCard {
+  display: block;
+  height: 5.25rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: linear-gradient(
+    100deg,
+    var(--surface-elevated) 20%,
+    var(--surface-hover) 45%,
+    var(--surface-elevated) 70%
+  );
+  background-size: 220% 100%;
+  animation: skeletonShimmer 1.5s ease-in-out infinite;
+}
+
+.skeletonRow > .skeletonCard:first-child {
+  margin-right: 1rem;
+}
+
+.skeletonRow > .skeletonCard:last-child {
+  margin-left: 1rem;
+}
+
+.skeletonNode {
+  width: var(--badge-size);
+  height: var(--badge-size);
+  border-radius: 50%;
+  border: 2px solid var(--spine);
+  background: var(--badge-bg);
+  justify-self: center;
+  animation: skeletonShimmer 1.5s ease-in-out infinite;
+}
+
+.maisEventos {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 1rem 1.5rem;
+}
+
+.maisEventosBtn {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-elevated);
+  color: var(--foreground);
+  font-size: 0.75rem;
+  padding: 0.55rem 1rem;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.maisEventosBtn:hover {
+  background: var(--surface-hover);
+  border-color: #3a3734;
+}
+
+.maisEventos span {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.62rem;
+  color: var(--muted);
+}
+
+@keyframes skeletonShimmer {
+  0% {
+    background-position: 180% 0;
+  }
+  100% {
+    background-position: -80% 0;
+  }
+}
+
 .filters {
   display: flex;
   flex-wrap: wrap;
@@ -666,6 +763,25 @@
   }
 }
 
+@media (max-width: 900px) {
+  .skeletonRow {
+    grid-template-columns: var(--center-col) 1fr;
+  }
+
+  .skeletonRow > .skeletonCard:first-child {
+    display: none;
+  }
+
+  .skeletonNode {
+    grid-column: 1;
+  }
+
+  .skeletonRow > .skeletonCard:last-child {
+    grid-column: 2;
+    margin-left: var(--side-gap);
+  }
+}
+
 @keyframes badgePop {
   from {
     opacity: 0;
@@ -726,7 +842,9 @@
   .yearBadge,
   .dotNode,
   .modal,
-  .modalBackdrop {
+  .modalBackdrop,
+  .skeletonCard,
+  .skeletonNode {
     animation: none;
   }
 

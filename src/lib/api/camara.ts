@@ -239,7 +239,7 @@ export async function getDeputadoResumo(
   id: string,
 ): Promise<{ nome: string; partido: string; uf: string; nascimento?: string } | null> {
   "use cache";
-  cacheLife("hours");
+  cacheLife({ stale: 300, revalidate: 600, expire: 86400 });
 
   const detalhe = await getDeputadoDetalhe(id);
   if (!detalhe?.dados) return null;
@@ -736,12 +736,97 @@ export function sumExpenses(despesas: CamaraDespesa[]): number {
   return despesas.reduce((acc, d) => acc + (d.valorLiquido ?? 0), 0);
 }
 
-export async function buildDeputado(id: string): Promise<Politico | null> {
+/**
+ * Ficha enxuta do deputado: apenas o detalhe oficial e dados locais.
+ *
+ * É o suficiente para pintar cabeçalho, painel e notícias enquanto o dossiê
+ * pesado (discursos, votações, despesas, proposições e TSE) ainda carrega em
+ * segundo plano. Evita que uma carreira longa bloqueie o primeiro HTML.
+ */
+function montarDeputadoBase(id: string, detalhe: CamaraDetalhe): Politico {
+  const s = detalhe.dados.ultimoStatus;
+  const legislatura = s?.idLegislatura ?? 57;
+  const nome = s?.nome ?? detalhe.dados.nomeCivil ?? "Deputado";
+  const naturalidade =
+    [detalhe.dados.municipioNascimento, detalhe.dados.ufNascimento]
+      .filter(Boolean)
+      .join(" / ") || undefined;
+  const cargos = getCargosPublicos(nome, detalhe.dados.dataNascimento);
+  const cargoAtual = cargos.find((cargo) => cargo.atual) ?? null;
+  const vigente =
+    (s?.descricaoStatus ?? "").toLowerCase().includes("exerc") ||
+    (s?.situacao ?? "").toLowerCase().includes("exerc");
+  const midia = buildMediaLinks({
+    nome,
+    cargo: "deputado",
+    id,
+    redes: detalhe.dados.redeSocial ?? [],
+    site: detalhe.dados.urlWebsite,
+  });
+
+  return {
+    id,
+    nome,
+    nomeBusca: `${s?.nome ?? ""} ${s?.siglaPartido ?? ""} ${s?.siglaUf ?? ""}`.toLowerCase(),
+    cargo: "deputado",
+    vigente,
+    uf: s?.siglaUf ?? "—",
+    partido: s?.siglaPartido ?? "—",
+    fotoUrl: s?.urlFoto,
+    legislatura: String(legislatura),
+    sexo: detalhe.dados.sexo ?? "—",
+    escolaridade: detalhe.dados.escolaridade ?? "—",
+    condicao: s?.condicaoEleitoral ?? "Titular",
+    gabinete: {
+      predio: s?.gabinete?.predio ?? "—",
+      sala: s?.gabinete?.sala ?? "—",
+      telefone: s?.gabinete?.telefone ?? "—",
+      email: s?.gabinete?.email ?? s?.email ?? "—",
+    },
+    comissoes: [],
+    cargos,
+    situacaoAtual: cargoAtual,
+    events: [],
+    bio: {
+      nomeCivil: detalhe.dados.nomeCivil,
+      nascimento: detalhe.dados.dataNascimento,
+      idade: calcularIdade(
+        detalhe.dados.dataNascimento,
+        detalhe.dados.dataFalecimento,
+      ),
+      naturalidade,
+      falecimento: detalhe.dados.dataFalecimento ?? undefined,
+    },
+    profissoes: [],
+    frentes: [],
+    midia,
+    polemicas: 0,
+  };
+}
+
+/**
+ * Dados mínimos do perfil, cacheados separadamente do dossiê completo.
+ * A página usa esta função para liberar o HTML inicial rapidamente.
+ */
+export async function buildDeputadoBase(id: string): Promise<Politico | null> {
   "use cache";
-  cacheLife("hours");
+  cacheLife({ stale: 300, revalidate: 600, expire: 86400 });
 
   const detalhe = await getDeputadoDetalhe(id);
   if (!detalhe?.dados) return null;
+  return montarDeputadoBase(id, detalhe);
+}
+
+export async function buildDeputado(id: string): Promise<Politico | null> {
+  "use cache";
+  // O perfil se atualiza no máximo a cada 10 min no servidor; o cliente
+  // revalida a rota a cada 15 min. Evita reconstruir dossiês pesados a cada
+  // abertura e respeita os limites das APIs da Câmara.
+  cacheLife({ stale: 300, revalidate: 600, expire: 86400 });
+
+  const detalhe = await getDeputadoDetalhe(id);
+  if (!detalhe?.dados) return null;
+  const base = montarDeputadoBase(id, detalhe);
   const s = detalhe.dados.ultimoStatus;
   const legislatura = s?.idLegislatura ?? 57;
 
@@ -757,24 +842,16 @@ export async function buildDeputado(id: string): Promise<Politico | null> {
     ]);
 
   const votacoes = votacaoInfo.votos;
-  const nome = s?.nome ?? detalhe.dados.nomeCivil ?? "Deputado";
   const eleicao2026Promise = getEleicaoPolitico({
-    nome,
+    nome: base.nome,
     nomeCivil: detalhe.dados.nomeCivil,
     nascimento: detalhe.dados.dataNascimento,
-    uf: s?.siglaUf ?? "",
+    uf: base.uf,
     cargo: "deputado",
   });
-  const naturalidade =
-    [detalhe.dados.municipioNascimento, detalhe.dados.ufNascimento]
-      .filter(Boolean)
-      .join(" / ") || undefined;
   const anoLegislatura = 2023 - (57 - legislatura) * 4;
-  const cargos = getCargosPublicos(nome, detalhe.dados.dataNascimento);
-  const cargoAtual = cargos.find((cargo) => cargo.atual) ?? null;
-  const vigente =
-    (s?.descricaoStatus ?? "").toLowerCase().includes("exerc") ||
-    (s?.situacao ?? "").toLowerCase().includes("exerc");
+  const cargos = base.cargos ?? [];
+  const vigente = base.vigente;
 
   const eventosBase = buildDeputadoEvents({
     deputadoId: id,
@@ -786,7 +863,7 @@ export async function buildDeputado(id: string): Promise<Politico | null> {
     anoLegislatura,
     bio: {
       nascimento: detalhe.dados.dataNascimento,
-      naturalidade,
+      naturalidade: base.bio?.naturalidade,
       escolaridade: detalhe.dados.escolaridade,
     },
   });
@@ -797,7 +874,7 @@ export async function buildDeputado(id: string): Promise<Politico | null> {
     mesclarEventos(
       eventosBase,
       buildCargoEvents(cargos, id),
-      getEventosHistoricos(nome, detalhe.dados.dataNascimento, id),
+      getEventosHistoricos(base.nome, detalhe.dados.dataNascimento, id),
     ),
   );
 
@@ -810,14 +887,6 @@ export async function buildDeputado(id: string): Promise<Politico | null> {
           : "";
     const entidade = o.entidade ? ` — ${o.entidade}` : "";
     return `${o.titulo}${entidade}${periodo}`;
-  });
-
-  const midia = buildMediaLinks({
-    nome,
-    cargo: "deputado",
-    id,
-    redes: detalhe.dados.redeSocial ?? [],
-    site: detalhe.dados.urlWebsite,
   });
 
   const polemicas = contarPolemicas(events);
@@ -835,47 +904,17 @@ export async function buildDeputado(id: string): Promise<Politico | null> {
   const eleicao2026 = await eleicao2026Promise;
 
   return {
-    id,
-    nome,
-    nomeBusca: `${s?.nome ?? ""} ${s?.siglaPartido ?? ""} ${s?.siglaUf ?? ""}`.toLowerCase(),
-    cargo: "deputado",
-    vigente,
-    uf: s?.siglaUf ?? "—",
-    partido: s?.siglaPartido ?? "—",
-    fotoUrl: s?.urlFoto,
-    legislatura: String(legislatura),
-    sexo: detalhe.dados.sexo ?? "—",
-    escolaridade: detalhe.dados.escolaridade ?? "—",
-    condicao: s?.condicaoEleitoral ?? "Titular",
-    eleicao: eleicao2026,
-    gabinete: {
-      predio: s?.gabinete?.predio ?? "—",
-      sala: s?.gabinete?.sala ?? "—",
-      telefone: s?.gabinete?.telefone ?? "—",
-      email: s?.gabinete?.email ?? s?.email ?? "—",
-    },
+    ...base,
     comissoes: orgaos,
     stats: {
       presencaMedia,
       diasTrabalhados: votacoesComVoto,
       ceapTotal: despesas.length ? ceap : null,
     },
-    cargos,
-    situacaoAtual: cargoAtual,
+    eleicao: eleicao2026,
     events,
-    bio: {
-      nomeCivil: detalhe.dados.nomeCivil,
-      nascimento: detalhe.dados.dataNascimento,
-      idade: calcularIdade(
-        detalhe.dados.dataNascimento,
-        detalhe.dados.dataFalecimento,
-      ),
-      naturalidade,
-      falecimento: detalhe.dados.dataFalecimento ?? undefined,
-    },
     profissoes,
     frentes: frentes.map((f) => f.titulo).slice(0, 24),
-    midia,
     polemicas,
     atividade: {
       votacoes: votacoes.length,

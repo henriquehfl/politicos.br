@@ -2,15 +2,55 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PoliticoProfileView } from "@/components/PoliticoProfileView";
-import { buildDeputado, getDeputadoResumo } from "@/lib/api/camara";
+import {
+  PoliticoDossiePainel,
+  PoliticoDossieStats,
+  PoliticoDossieTimeline,
+} from "@/components/PoliticoDossie";
+import {
+  PoliticoPainelSkeleton,
+  PoliticoStatsSkeleton,
+  PoliticoTimelineSkeleton,
+} from "@/components/PoliticoPerfilSkeleton";
+import { buildDeputado, buildDeputadoBase, getDeputadoResumo } from "@/lib/api/camara";
+
+// A ficha-base é resolvida antes do dossiê; o streaming fica restrito aos
+// blocos pesados e não atrasa o HTML inicial.
+export const instant = false;
 
 type DeputadoParams = PageProps<"/deputados/[id]">["params"];
 
-async function DeputadoContent({ params }: { params: DeputadoParams }) {
+export default async function DeputadoPage({
+  params,
+}: PageProps<"/deputados/[id]">) {
   const { id } = await params;
-  const politico = await buildDeputado(id);
+  const politico = await buildDeputadoBase(id);
   if (!politico) notFound();
-  return <PoliticoProfileView politico={politico} />;
+
+  // A ficha básica já está pronta. O dossiê pesado começa agora e cada bloco
+  // abaixo resolve no seu próprio boundary, sem bloquear o HTML inicial.
+  const dossie = buildDeputado(id);
+
+  return (
+    <PoliticoProfileView
+      politico={politico}
+      stats={
+        <Suspense fallback={<PoliticoStatsSkeleton />}>
+          <PoliticoDossieStats dossie={dossie} />
+        </Suspense>
+      }
+      timeline={
+        <Suspense fallback={<PoliticoTimelineSkeleton />}>
+          <PoliticoDossieTimeline dossie={dossie} />
+        </Suspense>
+      }
+      painel={
+        <Suspense fallback={<PoliticoPainelSkeleton />}>
+          <PoliticoDossiePainel dossie={dossie} />
+        </Suspense>
+      }
+    />
+  );
 }
 
 export async function generateMetadata({
@@ -39,16 +79,4 @@ export async function generateMetadata({
       type: "profile",
     },
   };
-}
-
-export default function DeputadoPage({ params }: PageProps<"/deputados/[id]">) {
-  return (
-    <Suspense
-      fallback={
-        <p className="page-loading">Carregando dados da Câmara dos Deputados…</p>
-      }
-    >
-      <DeputadoContent params={params} />
-    </Suspense>
-  );
 }

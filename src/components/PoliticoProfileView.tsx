@@ -1,15 +1,24 @@
 "use client";
 
-import { useState } from "react";
-import { ExternalLink, FileText, Landmark, Mic, Vote } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { ExternalLink, Landmark } from "lucide-react";
+import { REFRESH_PERFIL_MS } from "@/lib/atualizacao";
 import type { Politico } from "@/lib/types";
+import { AutoRefresh } from "./AutoRefresh";
 import { CentralTimeline } from "./CentralTimeline";
+import { PoliticoActivityStats } from "./PoliticoActivityStats";
 import { PoliticoSearch } from "./PoliticoSearch";
 import { PoliticoSidePanel } from "./PoliticoSidePanel";
 import styles from "./profile-view.module.css";
 
 interface PoliticoProfileViewProps {
   politico: Politico;
+  /** Contadores completos; a ficha-base pode não tê-los ainda. */
+  stats?: ReactNode;
+  /** Linha do tempo transmitida pelo servidor. */
+  timeline?: ReactNode;
+  /** Blocos pesados do painel lateral transmitidos pelo servidor. */
+  painel?: ReactNode;
 }
 
 /** "48" ou "57ª" -> "48ª legislatura" */
@@ -26,7 +35,12 @@ function periodoLegislatura(valor: string): string | null {
   return `${inicio}–${inicio + 4}`;
 }
 
-export function PoliticoProfileView({ politico }: PoliticoProfileViewProps) {
+export function PoliticoProfileView({
+  politico,
+  stats,
+  timeline,
+  painel,
+}: PoliticoProfileViewProps) {
   const [modo, setModo] = useState<"auto" | "aberto" | "fechado">("auto");
   const atividade = politico.atividade;
   const situacaoAtual =
@@ -45,6 +59,7 @@ export function PoliticoProfileView({ politico }: PoliticoProfileViewProps) {
 
   return (
     <div className={styles.shell}>
+      <AutoRefresh intervalMs={REFRESH_PERFIL_MS} />
       <div
         className={`${styles.main} ${
           modo === "aberto"
@@ -100,32 +115,15 @@ export function PoliticoProfileView({ politico }: PoliticoProfileViewProps) {
             </div>
           </div>
 
-          {atividade && (
-            <ul className={styles.stats}>
-              <li>
-                <Vote size={13} aria-hidden />
-                <strong>{atividade.votacoes.toLocaleString("pt-BR")}</strong>
-                <span>votos em plenário</span>
-              </li>
-              <li>
-                <Mic size={13} aria-hidden />
-                <strong>{atividade.discursos.toLocaleString("pt-BR")}</strong>
-                <span>discursos</span>
-              </li>
-              <li>
-                <FileText size={13} aria-hidden />
-                <strong>{atividade.proposicoes.toLocaleString("pt-BR")}</strong>
-                <span>proposições</span>
-              </li>
-            </ul>
-          )}
+          {stats ?? (atividade && <PoliticoActivityStats atividade={atividade} />)}
         </div>
-        <CentralTimeline events={politico.events} showFilters />
+        {timeline ?? <CentralTimeline events={politico.events} showFilters />}
       </div>
       <PoliticoSidePanel
         politico={politico}
         modo={modo}
         onToggle={alternarPainel}
+        dossie={painel}
       />
     </div>
   );

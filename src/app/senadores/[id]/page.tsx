@@ -2,15 +2,55 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PoliticoProfileView } from "@/components/PoliticoProfileView";
-import { buildSenador, getSenadorResumo } from "@/lib/api/senado";
+import {
+  PoliticoDossiePainel,
+  PoliticoDossieStats,
+  PoliticoDossieTimeline,
+} from "@/components/PoliticoDossie";
+import {
+  PoliticoPainelSkeleton,
+  PoliticoStatsSkeleton,
+  PoliticoTimelineSkeleton,
+} from "@/components/PoliticoPerfilSkeleton";
+import { buildSenador, buildSenadorBase, getSenadorResumo } from "@/lib/api/senado";
+
+// A ficha-base é resolvida antes do dossiê; o streaming fica restrito aos
+// blocos pesados e não atrasa o HTML inicial.
+export const instant = false;
 
 type SenadorParams = PageProps<"/senadores/[id]">["params"];
 
-async function SenadorContent({ params }: { params: SenadorParams }) {
+export default async function SenadorPage({
+  params,
+}: PageProps<"/senadores/[id]">) {
   const { id } = await params;
-  const politico = await buildSenador(id);
+  const politico = await buildSenadorBase(id);
   if (!politico) notFound();
-  return <PoliticoProfileView politico={politico} />;
+
+  // Ficha básica primeiro; o dossiê completo (discursos, votações, autorias)
+  // chega em blocos independentes para não bloquear a primeira pintura.
+  const dossie = buildSenador(id);
+
+  return (
+    <PoliticoProfileView
+      politico={politico}
+      stats={
+        <Suspense fallback={<PoliticoStatsSkeleton />}>
+          <PoliticoDossieStats dossie={dossie} />
+        </Suspense>
+      }
+      timeline={
+        <Suspense fallback={<PoliticoTimelineSkeleton />}>
+          <PoliticoDossieTimeline dossie={dossie} />
+        </Suspense>
+      }
+      painel={
+        <Suspense fallback={<PoliticoPainelSkeleton />}>
+          <PoliticoDossiePainel dossie={dossie} />
+        </Suspense>
+      }
+    />
+  );
 }
 
 export async function generateMetadata({
@@ -39,16 +79,4 @@ export async function generateMetadata({
       type: "profile",
     },
   };
-}
-
-export default function SenadorPage({ params }: PageProps<"/senadores/[id]">) {
-  return (
-    <Suspense
-      fallback={
-        <p className="page-loading">Carregando dados do Senado Federal…</p>
-      }
-    >
-      <SenadorContent params={params} />
-    </Suspense>
-  );
 }

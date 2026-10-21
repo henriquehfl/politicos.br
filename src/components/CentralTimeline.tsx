@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
 } from "react";
@@ -66,6 +67,14 @@ const FILTROS: Array<TimelineCategory | "all"> = [
   "historico",
 ];
 
+/**
+ * Carreiras longas podem passar de 500 eventos. O HTML é transmitido inteiro,
+ * mas só uma primeira página entra no DOM; o restante é revelado em lotes,
+ * por rolagem ou pelo botão, reduzindo o custo de hidratação e pintura.
+ */
+const EVENTOS_INICIAIS = 30;
+const EVENTOS_PASSO = 30;
+
 function voteChipClass(vote: VotePosition): string {
   if (vote === "SIM") return styles.chipSim;
   if (vote === "NAO") return styles.chipNao;
@@ -125,6 +134,8 @@ export function CentralTimeline({
 }: CentralTimelineProps) {
   const [filter, setFilter] = useState<TimelineCategory | "all">("all");
   const [selected, setSelected] = useState<TimelineEvent | null>(null);
+  const [limite, setLimite] = useState(EVENTOS_INICIAIS);
+  const sentinelaRef = useRef<HTMLDivElement | null>(null);
 
   const sorted = useMemo(() => {
     const list = [...events].sort((a, b) => {
@@ -144,6 +155,34 @@ export function CentralTimeline({
     }
     return mapa;
   }, [events]);
+
+  const visiveis = sorted.slice(0, limite);
+  const restantes = sorted.length - visiveis.length;
+
+  // Trocou o filtro: volta ao primeiro lote, sem manter uma lista enorme.
+  // O reset é feito no clique do filtro para não chamar setState em efeito.
+  const trocarFiltro = useCallback((proximo: TimelineCategory | "all") => {
+    setFilter(proximo);
+    setLimite(EVENTOS_INICIAIS);
+  }, []);
+
+  // Carrega o próximo lote quando a sentinela entra na área visível.
+  useEffect(() => {
+    if (restantes <= 0 || !sentinelaRef.current) return;
+    const sentinela = sentinelaRef.current;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setLimite((atual) =>
+            Math.min(atual + EVENTOS_PASSO, sorted.length),
+          );
+        }
+      },
+      { rootMargin: "240px 0px" },
+    );
+    observer.observe(sentinela);
+    return () => observer.disconnect();
+  }, [restantes, sorted.length]);
 
   const closeModal = useCallback(() => {
     setSelected(null);
@@ -206,7 +245,7 @@ export function CentralTimeline({
                 key={key}
                 type="button"
                 className={`${styles.filterBtn} ${filter === key ? styles.filterBtnActive : ""}`}
-                onClick={() => setFilter(key)}
+                onClick={() => trocarFiltro(key)}
                 aria-pressed={filter === key}
                 style={
                   meta
@@ -229,11 +268,11 @@ export function CentralTimeline({
             Nenhum evento nesta categoria para este parlamentar.
           </li>
         )}
-        {sorted.map((event, index) => {
+        {visiveis.map((event, index) => {
           const isLeft = index % 2 === 0;
           // O ano só é escrito no primeiro evento de cada ano; os demais
           // recebem um marcador discreto para não repetir o mesmo badge.
-          const abreAno = index === 0 || sorted[index - 1].year !== event.year;
+          const abreAno = index === 0 || visiveis[index - 1].year !== event.year;
           return (
             <li
               key={event.id}
@@ -271,6 +310,25 @@ export function CentralTimeline({
           );
         })}
       </ul>
+
+      {restantes > 0 && (
+        <div ref={sentinelaRef} className={styles.maisEventos}>
+          <button
+            type="button"
+            className={styles.maisEventosBtn}
+            onClick={() =>
+              setLimite((atual) =>
+                Math.min(atual + EVENTOS_PASSO, sorted.length),
+              )
+            }
+          >
+            Carregar mais {Math.min(restantes, EVENTOS_PASSO)}
+          </button>
+          <span>
+            {restantes.toLocaleString("pt-BR")} evento(s) restante(s)
+          </span>
+        </div>
+      )}
 
       <p className={styles.timelineNote}>
         Dados de mandato, votações e pronunciamentos vêm das APIs oficiais da

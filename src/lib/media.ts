@@ -137,3 +137,10 @@ export function newsSearchUrl(nome: string, termo = "polêmica"): string {
     `${nome} ${termo}`,
   )}&hl=pt-BR&gl=BR&ceid=BR:pt-419`;
 }
+
+/** Busca livre por nome, usada pelo bloco de notícias recentes. */
+export function newsAllSearchUrl(nome: string): string {
+  return `https://news.google.com/search?q=${encodeURIComponent(
+    nome,
+  )}&hl=pt-BR&gl=BR&ceid=BR:pt-419`;
+}
